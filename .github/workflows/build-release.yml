@@ -6,6 +6,9 @@ on:
       - 'v*'  # Se ejecuta cuando creas un tag como v1.0.0
   workflow_dispatch:  # También permite ejecutar manualmente
 
+permissions:
+  contents: write  # Necesario para crear releases
+
 jobs:
   build-windows:
     runs-on: windows-latest
