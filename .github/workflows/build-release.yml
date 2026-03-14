@@ -51,7 +51,7 @@ jobs:
       
       - name: Build Windows executable
         run: |
-          pyinstaller --onefile --noconsole --name "VerificadorDUSA" --icon "icon.ico" --collect-all pandas --collect-all numpy --collect-all openpyxl --hidden-import=pandas._libs.tslibs.timedeltas --hidden-import=pandas._libs.tslibs.np_datetime --hidden-import=pandas._libs.tslibs.nattype --hidden-import=openpyxl.cell._writer app_escritorio_v2.py
+          pyinstaller --onefile --noconsole --name "VerificadorDUSA" --icon "icon.ico" --collect-all pandas --collect-all numpy --collect-all openpyxl --collect-all selenium --collect-all webdriver_manager --hidden-import=pandas._libs.tslibs.timedeltas --hidden-import=pandas._libs.tslibs.np_datetime --hidden-import=pandas._libs.tslibs.nattype --hidden-import=openpyxl.cell._writer --hidden-import=selenium.webdriver.chrome.service --hidden-import=selenium.webdriver.common.service app_escritorio_v2.py
       
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -106,9 +106,9 @@ jobs:
       - name: Build Mac executable
         run: |
           if [ -f icon.icns ]; then
-            pyinstaller --onefile --noconsole --name "VerificadorDUSA" --icon "icon.icns" --collect-all pandas --collect-all numpy --collect-all openpyxl app_escritorio_v2.py
+            pyinstaller --onefile --noconsole --name "VerificadorDUSA" --icon "icon.icns" --collect-all pandas --collect-all numpy --collect-all openpyxl --collect-all selenium --collect-all webdriver_manager app_escritorio_v2.py
           else
-            pyinstaller --onefile --noconsole --name "VerificadorDUSA" --collect-all pandas --collect-all numpy --collect-all openpyxl app_escritorio_v2.py
+            pyinstaller --onefile --noconsole --name "VerificadorDUSA" --collect-all pandas --collect-all numpy --collect-all openpyxl --collect-all selenium --collect-all webdriver_manager app_escritorio_v2.py
           fi
       
       - name: Create Mac ZIP

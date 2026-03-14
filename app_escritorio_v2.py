@@ -1440,16 +1440,35 @@ def crear_driver(num_ventana=0):
     opciones.add_argument("--disable-dev-shm-usage")
     opciones.add_argument("--disable-gpu")
     opciones.add_argument("--window-size=800,600")
+    opciones.add_argument("--disable-extensions")
+    opciones.add_argument("--disable-software-rasterizer")
     
     # Posicionar cada ventana en diferente lugar
     x_pos = 50 + (num_ventana % 3) * 350
     y_pos = 50 + (num_ventana // 3) * 250
     opciones.add_argument(f"--window-position={x_pos},{y_pos}")
     
-    servicio = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=servicio, options=opciones)
+    driver = None
     
-    return driver
+    # Opción 1: Usar Selenium Manager nativo (Selenium 4.6+) - más confiable
+    try:
+        print(f"[Driver {num_ventana}] Intentando crear driver con Selenium Manager...")
+        driver = webdriver.Chrome(options=opciones)
+        print(f"[Driver {num_ventana}] ✅ Driver creado con Selenium Manager")
+        return driver
+    except Exception as e:
+        print(f"[Driver {num_ventana}] Selenium Manager falló: {e}")
+    
+    # Opción 2: Usar webdriver-manager como fallback
+    try:
+        print(f"[Driver {num_ventana}] Intentando con webdriver-manager...")
+        servicio = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=servicio, options=opciones)
+        print(f"[Driver {num_ventana}] ✅ Driver creado con webdriver-manager")
+        return driver
+    except Exception as e:
+        print(f"[Driver {num_ventana}] ❌ webdriver-manager falló: {e}")
+        raise Exception(f"No se pudo iniciar Chrome. Verifica que Google Chrome esté instalado. Error: {e}")
 
 
 def login_dusa(driver, usuario, password, cliente):
@@ -1632,25 +1651,39 @@ def procesar_verificacion(usuario, password, cliente, productos, num_ventanas, f
     
     try:
         with progress_lock:
-            estado['mensaje'] = f'Abriendo {num_ventanas} ventana(s)...'
+            estado['mensaje'] = f'Abriendo {num_ventanas} ventana(s) de Chrome...'
         
         # Crear drivers y hacer login
         for i in range(num_ventanas):
             with progress_lock:
                 if estado['detenido']:
                     break
-                estado['mensaje'] = f'Conectando ventana {i+1}/{num_ventanas}...'
+                estado['mensaje'] = f'Abriendo Chrome {i+1}/{num_ventanas}...'
             
-            driver = crear_driver(i)
-            if login_dusa(driver, usuario, password, cliente):
-                drivers.append(driver)
-                # Registrar en lista global para poder cerrar desde /detener
-                with drivers_lock:
-                    active_drivers.append(driver)
+            try:
+                print(f"[Verificador] Iniciando Chrome ventana {i+1}...")
+                driver = crear_driver(i)
+                print(f"[Verificador] Chrome {i+1} iniciado, haciendo login...")
+                
                 with progress_lock:
-                    estado['ventanas_activas'] = len(drivers)
-            else:
-                driver.quit()
+                    estado['mensaje'] = f'Conectando a DUSA ({i+1}/{num_ventanas})...'
+                
+                if login_dusa(driver, usuario, password, cliente):
+                    drivers.append(driver)
+                    # Registrar en lista global para poder cerrar desde /detener
+                    with drivers_lock:
+                        active_drivers.append(driver)
+                    with progress_lock:
+                        estado['ventanas_activas'] = len(drivers)
+                    print(f"[Verificador] ✅ Ventana {i+1} conectada a DUSA")
+                else:
+                    print(f"[Verificador] ❌ Login falló en ventana {i+1}")
+                    driver.quit()
+            except Exception as e:
+                print(f"[Verificador] ❌ Error creando ventana {i+1}: {e}")
+                with progress_lock:
+                    estado['mensaje'] = f'Error abriendo Chrome {i+1}: {str(e)[:100]}'
+                continue
         
         if not drivers:
             with progress_lock:
