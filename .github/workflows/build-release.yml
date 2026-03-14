@@ -3,11 +3,11 @@ name: Build & Release
 on:
   push:
     tags:
-      - 'v*'  # Se ejecuta cuando creas un tag como v1.0.0
-  workflow_dispatch:  # También permite ejecutar manualmente
+      - 'v*'
+  workflow_dispatch:
 
 permissions:
-  contents: write  # Necesario para crear releases
+  contents: write
 
 jobs:
   build-windows:
@@ -24,31 +24,46 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller cairosvg pillow
+          pip install pyinstaller pillow
       
       - name: Generate Windows icon from SVG
         run: |
+          pip install cairosvg
           python -c "
           import cairosvg
           from PIL import Image
           import io
           
-          # Convertir SVG a PNG grande
+          # Convertir SVG a PNG
           png_data = cairosvg.svg2png(url='icon.svg', output_width=256, output_height=256)
-          img = Image.open(io.BytesIO(png_data))
+          img = Image.open(io.BytesIO(png_data)).convert('RGBA')
           
-          # Crear tamaños para ICO
+          # Crear ICO con multiples tamaños
           sizes = [(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
           imgs = [img.resize(size, Image.LANCZOS) for size in sizes]
-          
-          # Guardar como ICO
-          imgs[0].save('icon.ico', format='ICO', sizes=sizes, append_images=imgs[1:])
-          print('icon.ico created successfully')
+          imgs[0].save('icon.ico', format='ICO', append_images=imgs[1:])
+          print('icon.ico created')
           "
+        shell: bash
+        continue-on-error: true
+      
+      - name: Fallback icon (if SVG conversion fails)
+        run: |
+          if not exist icon.ico (
+            echo Creating default icon...
+            python -c "from PIL import Image; img = Image.new('RGBA', (256,256), (147,51,234,255)); img.save('icon.ico', format='ICO')"
+          )
+        shell: cmd
       
       - name: Build Windows executable
         run: |
-          pyinstaller --onefile --noconsole --name "VerificadorDUSA" --icon "icon.ico" app_tuplanilla.py
+          pyinstaller --clean verificador.spec
+        continue-on-error: true
+      
+      - name: Build Windows (fallback simple)
+        if: failure()
+        run: |
+          pyinstaller --onefile --noconsole --name "VerificadorDUSA" --hidden-import=pandas --hidden-import=openpyxl --hidden-import=openpyxl.cell._writer --hidden-import=numpy app_tuplanilla.py
       
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -79,37 +94,32 @@ jobs:
           from PIL import Image
           import io
           import os
-          import subprocess
           
-          # Crear iconset directory
           os.makedirs('icon.iconset', exist_ok=True)
           
-          # Tamaños requeridos para iconset de Mac
-          sizes = [16, 32, 64, 128, 256, 512, 1024]
+          sizes = [16, 32, 64, 128, 256, 512]
           
           for size in sizes:
-              # Normal
               png_data = cairosvg.svg2png(url='icon.svg', output_width=size, output_height=size)
-              img = Image.open(io.BytesIO(png_data))
+              img = Image.open(io.BytesIO(png_data)).convert('RGBA')
               img.save(f'icon.iconset/icon_{size}x{size}.png', 'PNG')
               
-              # @2x (retina) - solo para tamaños menores
               if size <= 512:
                   size2x = size * 2
                   png_data2x = cairosvg.svg2png(url='icon.svg', output_width=size2x, output_height=size2x)
-                  img2x = Image.open(io.BytesIO(png_data2x))
+                  img2x = Image.open(io.BytesIO(png_data2x)).convert('RGBA')
                   img2x.save(f'icon.iconset/icon_{size}x{size}@2x.png', 'PNG')
           
-          print('iconset created successfully')
+          print('iconset created')
           EOF
           
-          # Convertir iconset a icns
-          iconutil -c icns icon.iconset -o icon.icns
-          echo "icon.icns created successfully"
+          iconutil -c icns icon.iconset -o icon.icns || echo "iconutil failed, continuing without icon"
       
-      - name: Build Mac executable
+      - name: Build Mac executable with spec
         run: |
-          pyinstaller --onefile --noconsole --name "VerificadorDUSA" --icon "icon.icns" app_tuplanilla.py
+          # Ajustar spec para Mac
+          sed -i '' "s/icon='icon.ico'/icon='icon.icns'/" verificador.spec 2>/dev/null || true
+          pyinstaller --clean verificador.spec || pyinstaller --onefile --noconsole --name "VerificadorDUSA" --hidden-import=pandas --hidden-import=openpyxl --hidden-import=numpy app_tuplanilla.py
       
       - name: Create Mac ZIP
         run: |
