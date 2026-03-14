@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verificador DUSA</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🔍 Verificador DUSA</h1>
+      <p class="subtitle">Verifica disponibilidad desde tu navegador</p>
+    </header>
+
+    <!-- Estado de conexión -->
+    <div id="connection-status" class="status-card">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-text">Verificando conexión...</span>
+    </div>
+
+    <!-- Paso 1: Subir archivo -->
+    <section id="step-upload" class="card">
+      <h2>📁 Paso 1: Selecciona tu archivo Excel</h2>
+      <div class="upload-zone" id="upload-zone">
+        <input type="file" id="file-input" accept=".xlsx,.xls">
+        <div class="upload-content">
+          <span class="upload-icon">📄</span>
+          <p>Arrastra tu archivo Excel aquí</p>
+          <p class="hint">o haz clic para seleccionar</p>
+        </div>
+      </div>
+      <div id="file-info" class="file-info hidden">
+        <span class="file-name"></span>
+        <span class="file-count"></span>
+        <button class="btn-small btn-danger" id="btn-clear-file">✕</button>
+      </div>
+    </section>
+
+    <!-- Paso 2: Configuración -->
+    <section id="step-config" class="card hidden">
+      <h2>⚙️ Paso 2: Configuración</h2>
+      <div class="form-group">
+        <label for="column-select">Columna con código de barras:</label>
+        <select id="column-select"></select>
+      </div>
+      <div class="form-group">
+        <label for="tabs-select">Ventanas paralelas:</label>
+        <div class="tabs-selector">
+          <select id="tabs-select">
+            <option value="1">1 ventana (más lento, menos recursos)</option>
+            <option value="2">2 ventanas</option>
+            <option value="3" selected>3 ventanas (recomendado)</option>
+            <option value="4">4 ventanas</option>
+            <option value="6">6 ventanas (más rápido)</option>
+          </select>
+          <p class="hint">Más ventanas = más rápido pero usa más recursos</p>
+        </div>
+      </div>
+      <div class="preview">
+        <h3>Vista previa (primeros 5):</h3>
+        <ul id="preview-list"></ul>
+      </div>
+    </section>
+
+    <!-- Paso 3: Procesar -->
+    <section id="step-process" class="card hidden">
+      <h2>🚀 Paso 3: Verificar productos</h2>
+      <button id="btn-start" class="btn btn-primary btn-large">
+        Iniciar Verificación
+      </button>
+      <button id="btn-stop" class="btn btn-danger btn-large hidden">
+        Detener
+      </button>
+      
+      <!-- Progreso -->
+      <div id="progress-container" class="hidden">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="progress-stats">
+          <span id="progress-text">0 / 0</span>
+          <span id="progress-percent">0%</span>
+        </div>
+        <div class="parallel-stats" id="parallel-stats">
+          <span id="tabs-active">Ventanas activas: 0</span>
+          <span id="time-estimate"></span>
+        </div>
+        <p id="current-product" class="current-product"></p>
+      </div>
+    </section>
+
+    <!-- Resultados -->
+    <section id="step-results" class="card hidden">
+      <h2>📊 Resultados</h2>
+      <div class="summary" id="summary"></div>
+      <div class="results-actions">
+        <button id="btn-download" class="btn btn-success">
+          📥 Descargar Excel
+        </button>
+        <button id="btn-new" class="btn btn-outline">
+          🔄 Nueva verificación
+        </button>
+      </div>
+      <div class="results-table-container">
+        <table class="results-table" id="results-table">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Producto</th>
+              <th>Stock</th>
+              <th>Precio</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Mensaje de error -->
+    <div id="error-message" class="error-card hidden">
+      <p></p>
+    </div>
+  </div>
+
+  <!-- Librería para leer Excel -->
+  <script src="lib/xlsx.full.min.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

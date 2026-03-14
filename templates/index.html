@@ -1,0 +1,650 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificador DUSA - Farmacia</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #1e3c72;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        h2 { color: #333; margin-bottom: 15px; font-size: 1.2em; }
+        .subtitle { color: #666; margin-bottom: 20px; }
+        
+        /* Upload zone */
+        .upload-zone {
+            border: 3px dashed #ccc;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f9f9f9;
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: #1e3c72;
+            background: #e8f0fe;
+        }
+        .upload-zone input { display: none; }
+        .upload-zone .icon { font-size: 50px; margin-bottom: 15px; }
+        .upload-zone p { color: #666; }
+        
+        /* Buttons */
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary {
+            background: #1e3c72;
+            color: white;
+        }
+        .btn-primary:hover { background: #2a5298; }
+        .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-outline {
+            background: white;
+            border: 2px solid #1e3c72;
+            color: #1e3c72;
+        }
+        
+        /* Progress */
+        .progress-container { margin: 20px 0; }
+        .progress-bar {
+            height: 25px;
+            background: #e9ecef;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #1e3c72, #2a5298);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        .status { margin-top: 10px; color: #666; }
+        
+        /* Results table */
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        .results-table th, .results-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .results-table th {
+            background: #f5f5f5;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        .results-table tr:hover { background: #f9f9f9; }
+        
+        /* Status badges */
+        .badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-danger { background: #f8d7da; color: #721c24; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-info { background: #cce5ff; color: #004085; }
+        .badge-alert { background: #ff6b6b; color: white; font-weight: bold; }
+        
+        /* Summary */
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .summary-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .summary-card .number {
+            font-size: 32px;
+            font-weight: bold;
+        }
+        .summary-card.disponible .number { color: #28a745; }
+        .summary-card.diferida .number { color: #007bff; }
+        .summary-card.consultar .number { color: #ffc107; }
+        .summary-card.faltante .number { color: #dc3545; }
+        .summary-card.no-encontrado .number { color: #6c757d; }
+        .summary-card.revisar .number { color: #ff6b6b; }
+        .badge-secondary { background: #e2e3e5; color: #383d41; }
+        
+        /* Precio inferior - resaltado */
+        .precio-inferior { background: #ffebee !important; }
+        .precio-inferior td { color: #c62828; }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .tab {
+            padding: 10px 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab:hover { background: #e9ecef; }
+        .tab.active {
+            background: #1e3c72;
+            color: white;
+        }
+        
+        /* Table container */
+        .table-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 8px;
+        }
+        
+        /* Hidden */
+        .hidden { display: none !important; }
+        
+        /* Animations */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .processing { animation: pulse 1.5s infinite; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="card">
+            <h1>🏥 Verificador DUSA</h1>
+            <p class="subtitle">Verifica disponibilidad de productos de Mercado Libre en DUSA</p>
+        </div>
+        
+        <!-- Upload Section -->
+        <div class="card" id="uploadSection">
+            <h2>📁 Paso 1: Sube tu archivo Excel de Mercado Libre</h2>
+            <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+                <div class="icon">📄</div>
+                <p><strong>Haz clic aquí</strong> o arrastra tu archivo Excel</p>
+                <p style="margin-top:10px; font-size:12px; color:#999;">.xlsx o .xls</p>
+                <input type="file" id="fileInput" accept=".xlsx,.xls">
+            </div>
+            <div id="fileInfo" class="hidden" style="margin-top:20px;">
+                <p>✅ <strong id="fileName"></strong></p>
+                <p id="productCount" style="color:#666;"></p>
+            </div>
+        </div>
+        
+        <!-- Control Section -->
+        <div class="card" id="controlSection">
+            <h2>🚀 Paso 2: Configurar e iniciar verificación</h2>
+            
+            <!-- Selector de ventanas -->
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">
+                    🪟 Número de ventanas paralelas:
+                </label>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <label style="display: flex; align-items: center; gap: 5px; padding: 10px 15px; background: #e8f4e8; border: 2px solid #28a745; border-radius: 8px; cursor: pointer;">
+                        <input type="radio" name="ventanas" value="1" checked> 
+                        <span>1 ventana <small style="color:#666">(seguro)</small></span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; padding: 10px 15px; background: #f5f5f5; border: 2px solid #ddd; border-radius: 8px; cursor: pointer;">
+                        <input type="radio" name="ventanas" value="2"> 
+                        <span>2 ventanas <small style="color:#666">(2x rápido)</small></span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; padding: 10px 15px; background: #f5f5f5; border: 2px solid #ddd; border-radius: 8px; cursor: pointer;">
+                        <input type="radio" name="ventanas" value="4"> 
+                        <span>4 ventanas <small style="color:#666">(4x rápido)</small></span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; padding: 10px 15px; background: #f5f5f5; border: 2px solid #ddd; border-radius: 8px; cursor: pointer;">
+                        <input type="radio" name="ventanas" value="6"> 
+                        <span>6 ventanas <small style="color:#666">(máximo)</small></span>
+                    </label>
+                </div>
+                <p style="margin-top: 8px; font-size: 12px; color: #888;">
+                    ⚡ Más ventanas = más rápido. Cada ventana de Chrome se abrirá visible.
+                </p>
+            </div>
+            
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="btn btn-primary" id="btnIniciar" onclick="iniciarVerificacion()" disabled>
+                    ▶️ Iniciar Verificación
+                </button>
+                <button class="btn btn-danger hidden" id="btnDetener" onclick="detenerVerificacion()">
+                    ⏹️ Detener
+                </button>
+            </div>
+            
+            <div class="progress-container hidden" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width:0%">0%</div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 10px; flex-wrap: wrap; gap: 15px;">
+                    <p class="status" id="statusText" style="margin: 0;">Preparando...</p>
+                    <div style="display: flex; gap: 20px; font-size: 14px;">
+                        <span>⏱️ <strong id="tiempoTranscurrido">00:00</strong></span>
+                        <span>🏁 Restante: <strong id="tiempoEstimado">calculando...</strong></span>
+                        <span>🚀 <strong id="velocidad">0</strong> prod/min</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results Section -->
+        <div class="card hidden" id="resultsSection">
+            <h2>📊 Resultados</h2>
+            
+            <div class="summary" id="summary"></div>
+            
+            <div class="tabs">
+                <div class="tab active" onclick="filtrarResultados('todos')">Todos</div>
+                <div class="tab" onclick="filtrarResultados('revisar')" style="background:#ffebee;color:#c62828;">⚠️ A Revisar</div>
+                <div class="tab" onclick="filtrarResultados('precio-inferior')" style="background:#fff3e0;color:#e65100;">💸 Precio Inferior</div>
+                <div class="tab" onclick="filtrarResultados('disponible')">✅ Disponibles</div>
+                <div class="tab" onclick="filtrarResultados('diferida')">🔵 Diferida</div>
+                <div class="tab" onclick="filtrarResultados('consultar')">⚠️ Consultar</div>
+                <div class="tab" onclick="filtrarResultados('faltante')">❌ Faltantes</div>
+                <div class="tab" onclick="filtrarResultados('no-encontrado')">🔍 No encontrados</div>
+            </div>
+            
+            <div class="table-container">
+                <table class="results-table" id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th>SKU</th>
+                            <th>Título ML</th>
+                            <th>Estado</th>
+                            <th>Producto DUSA</th>
+                            <th>Precio ML</th>
+                            <th>Precio DUSA</th>
+                            <th>Diferencia</th>
+                            <th>Alerta</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody"></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Download Section - aparece al completar -->
+        <div class="card hidden" id="downloadSection" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white;">
+            <h2 style="color: white;">✅ ¡Verificación Completada!</h2>
+            <p style="margin: 15px 0; font-size: 16px;" id="completedMessage">Se analizaron todos los productos.</p>
+            <button class="btn" id="btnDescargar" onclick="descargarResultado()" style="background: white; color: #28a745; font-size: 18px; padding: 15px 40px;">
+                📥 Descargar Resultados en Excel
+            </button>
+            <p style="margin-top: 15px; font-size: 13px; opacity: 0.9;">El archivo incluye: SKU, Título, Estado en DUSA, Precio DUSA, Oferta y más</p>
+        </div>
+    </div>
+    
+    <script>
+        let archivoActual = null;
+        let pollingInterval = null;
+        let todosResultados = [];
+        
+        // Drag & Drop
+        const uploadZone = document.getElementById('uploadZone');
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                document.getElementById('fileInput').files = e.dataTransfer.files;
+                subirArchivo(e.dataTransfer.files[0]);
+            }
+        });
+        
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                subirArchivo(e.target.files[0]);
+            }
+        });
+        
+        async function subirArchivo(file) {
+            const formData = new FormData();
+            formData.append('archivo', file);
+            
+            try {
+                const res = await fetch('/subir', { method: 'POST', body: formData });
+                const data = await res.json();
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+                
+                archivoActual = data.archivo;
+                document.getElementById('fileName').textContent = data.archivo;
+                document.getElementById('productCount').textContent = 
+                    `${data.total_productos} productos encontrados`;
+                document.getElementById('fileInfo').classList.remove('hidden');
+                document.getElementById('btnIniciar').disabled = false;
+                
+            } catch (e) {
+                alert('Error subiendo archivo: ' + e.message);
+            }
+        }
+        
+        // Función para formatear segundos a mm:ss o hh:mm:ss
+        function formatearTiempo(segundos) {
+            if (!segundos || segundos < 0) return 'calculando...';
+            segundos = Math.round(segundos);
+            if (segundos < 3600) {
+                const min = Math.floor(segundos / 60);
+                const seg = segundos % 60;
+                return `${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
+            } else {
+                const hrs = Math.floor(segundos / 3600);
+                const min = Math.floor((segundos % 3600) / 60);
+                const seg = segundos % 60;
+                return `${hrs}:${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}`;
+            }
+        }
+        
+        async function iniciarVerificacion() {
+            if (!archivoActual) return;
+            
+            // Obtener número de ventanas seleccionado
+            const ventanasInput = document.querySelector('input[name="ventanas"]:checked');
+            const ventanas = ventanasInput ? ventanasInput.value : '1';
+            
+            try {
+                const res = await fetch('/iniciar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ archivo: archivoActual, ventanas: parseInt(ventanas) })
+                });
+                const data = await res.json();
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+                
+                document.getElementById('btnIniciar').classList.add('hidden');
+                document.getElementById('btnDetener').classList.remove('hidden');
+                document.getElementById('progressContainer').classList.remove('hidden');
+                document.getElementById('resultsSection').classList.remove('hidden');
+                
+                pollingInterval = setInterval(actualizarEstado, 1000);
+                
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+        
+        async function actualizarEstado() {
+            try {
+                const res = await fetch('/estado');
+                const estado = await res.json();
+                
+                const porcentaje = estado.total > 0 ? 
+                    Math.round((estado.progreso / estado.total) * 100) : 0;
+                
+                document.getElementById('progressFill').style.width = porcentaje + '%';
+                document.getElementById('progressFill').textContent = porcentaje + '%';
+                document.getElementById('statusText').textContent = estado.mensaje;
+                
+                // Actualizar tiempos si existen
+                const tiempoTransEl = document.getElementById('tiempoTranscurrido');
+                const tiempoEstEl = document.getElementById('tiempoEstimado');
+                const velocidadEl = document.getElementById('velocidad');
+                
+                if (tiempoTransEl && estado.tiempo_transcurrido !== undefined) {
+                    tiempoTransEl.textContent = formatearTiempo(estado.tiempo_transcurrido);
+                }
+                if (tiempoEstEl && estado.tiempo_estimado !== undefined) {
+                    tiempoEstEl.textContent = formatearTiempo(estado.tiempo_estimado);
+                }
+                if (velocidadEl && estado.velocidad !== undefined) {
+                    velocidadEl.textContent = estado.velocidad ? estado.velocidad.toFixed(1) : '0';
+                }
+                
+                // Actualizar tabla
+                if (estado.resultados.length > 0) {
+                    todosResultados = estado.resultados;
+                    actualizarTabla(estado.resultados);
+                    actualizarResumen(estado.resultados);
+                }
+                
+                // Verificar si terminó
+                if (!estado.procesando && estado.progreso > 0) {
+                    clearInterval(pollingInterval);
+                    document.getElementById('btnDetener').classList.add('hidden');
+                    document.getElementById('btnIniciar').classList.remove('hidden');
+                    document.getElementById('statusText').classList.remove('processing');
+                    
+                    // Mostrar sección de descarga
+                    document.getElementById('downloadSection').classList.remove('hidden');
+                    
+                    // Actualizar mensaje con resumen
+                    const total = todosResultados.length;
+                    const disponibles = todosResultados.filter(r => r.encontrado && r.disponible === true).length;
+                    const consultar = todosResultados.filter(r => r.encontrado && (r.disponible === 'consultar' || r.estado_dusa === 'consultar')).length;
+                    const faltantes = todosResultados.filter(r => r.encontrado && r.disponible === false).length;
+                    const noEncontrados = todosResultados.filter(r => !r.encontrado).length;
+                    const precioInferior = todosResultados.filter(r => r.precio_inferior).length;
+                    const aRevisar = todosResultados.filter(r => r.precio_inferior || (!r.encontrado && r.sku && r.sku.trim())).length;
+                    
+                    let mensajeAlerta = '';
+                    if (aRevisar > 0) {
+                        mensajeAlerta = `<br><strong style="color:#c62828">⚠️ ${aRevisar} productos requieren revisión</strong> (${precioInferior} con precio inferior en ML)`;
+                    }
+                    
+                    document.getElementById('completedMessage').innerHTML = 
+                        `Se analizaron <strong>${total}</strong> productos: ` +
+                        `<strong style="color:#155724">${disponibles}</strong> disponibles, ` +
+                        `<strong style="color:#856404">${consultar}</strong> a consultar, ` +
+                        `<strong style="color:#721c24">${faltantes}</strong> faltantes, ` +
+                        `<strong>${noEncontrados}</strong> no encontrados.` +
+                        mensajeAlerta;
+                }
+                
+            } catch (e) {
+                console.error('Error actualizando estado:', e);
+            }
+        }
+        
+        function actualizarTabla(resultados) {
+            const tbody = document.getElementById('resultsBody');
+            tbody.innerHTML = '';
+            
+            resultados.forEach(r => {
+                let badge = '';
+                let clase = '';
+                if (!r.encontrado) {
+                    badge = '<span class="badge badge-secondary">No encontrado</span>';
+                    clase = 'no-encontrado';
+                } else if (r.disponible === 'diferida' || r.estado_dusa === 'diferida') {
+                    badge = '<span class="badge badge-info">🔵 Diferida</span>';
+                    clase = 'diferida';
+                } else if (r.disponible === 'consultar' || r.estado_dusa === 'consultar') {
+                    badge = '<span class="badge badge-warning">⚠️ Consultar</span>';
+                    clase = 'consultar';
+                } else if (r.disponible === true || r.estado_dusa === 'disponible') {
+                    badge = '<span class="badge badge-success">✅ Disponible</span>';
+                    clase = 'disponible';
+                } else {
+                    badge = '<span class="badge badge-danger">❌ Faltante</span>';
+                    clase = 'faltante';
+                }
+                
+                // Resaltar si precio inferior o alerta
+                if (r.precio_inferior) {
+                    clase += ' precio-inferior';
+                }
+                
+                // Calcular diferencia para mostrar
+                let difTexto = '-';
+                if (r.diferencia_precio !== null && r.diferencia_precio !== undefined) {
+                    const dif = r.diferencia_precio;
+                    if (dif < 0) {
+                        difTexto = `<span style="color:#c62828;font-weight:bold;">$${dif.toFixed(0)}</span>`;
+                    } else if (dif > 0) {
+                        difTexto = `<span style="color:#2e7d32;">+$${dif.toFixed(0)}</span>`;
+                    } else {
+                        difTexto = '$0';
+                    }
+                }
+                
+                // Alertas
+                let alertaHtml = '';
+                if (r.precio_inferior) {
+                    alertaHtml = '<span class="badge badge-alert">💸 PRECIO BAJO</span>';
+                } else if (!r.encontrado && r.sku && r.sku.trim()) {
+                    alertaHtml = '<span class="badge badge-warning">🔍 SKU no encontrado</span>';
+                }
+                
+                const tr = document.createElement('tr');
+                tr.className = clase;
+                tr.innerHTML = `
+                    <td>${r.sku || '-'}</td>
+                    <td>${r.titulo || '-'}</td>
+                    <td>${badge}</td>
+                    <td>${r.nombre_dusa || '-'}</td>
+                    <td>${r.precio_ml || '-'}</td>
+                    <td>${r.precio_dusa || '-'}</td>
+                    <td>${difTexto}</td>
+                    <td>${alertaHtml}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        function actualizarResumen(resultados) {
+            const total = resultados.length;
+            const disponibles = resultados.filter(r => r.encontrado && r.disponible === true).length;
+            const diferidas = resultados.filter(r => r.encontrado && (r.disponible === 'diferida' || r.estado_dusa === 'diferida')).length;
+            const consultar = resultados.filter(r => r.encontrado && (r.disponible === 'consultar' || r.estado_dusa === 'consultar')).length;
+            const faltantes = resultados.filter(r => r.encontrado && r.disponible === false).length;
+            const noEncontrados = resultados.filter(r => !r.encontrado).length;
+            const precioInferior = resultados.filter(r => r.precio_inferior).length;
+            const skuNoEncontrado = resultados.filter(r => !r.encontrado && r.sku && r.sku.trim()).length;
+            const aRevisar = resultados.filter(r => r.precio_inferior || (!r.encontrado && r.sku && r.sku.trim())).length;
+            
+            document.getElementById('summary').innerHTML = `
+                <div class="summary-card revisar" style="background:#ffebee;">
+                    <div class="number">${aRevisar}</div>
+                    <div>⚠️ A Revisar</div>
+                </div>
+                <div class="summary-card" style="background:#fff3e0;">
+                    <div class="number" style="color:#e65100;">${precioInferior}</div>
+                    <div>💸 Precio Inferior</div>
+                </div>
+                <div class="summary-card">
+                    <div class="number">${total}</div>
+                    <div>Total</div>
+                </div>
+                <div class="summary-card disponible">
+                    <div class="number">${disponibles}</div>
+                    <div>✅ Disponibles</div>
+                </div>
+                <div class="summary-card diferida">
+                    <div class="number">${diferidas}</div>
+                    <div>🔵 Diferida</div>
+                </div>
+                <div class="summary-card consultar">
+                    <div class="number">${consultar}</div>
+                    <div>⚠️ Consultar</div>
+                </div>
+                <div class="summary-card faltante">
+                    <div class="number">${faltantes}</div>
+                    <div>❌ Faltantes</div>
+                </div>
+                <div class="summary-card no-encontrado">
+                    <div class="number">${noEncontrados}</div>
+                    <div>🔍 No encontrados</div>
+                </div>
+            `;
+        }
+        
+        function filtrarResultados(tipo) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            let filtrados = todosResultados;
+            if (tipo === 'revisar') {
+                filtrados = todosResultados.filter(r => r.precio_inferior || (!r.encontrado && r.sku && r.sku.trim()));
+            } else if (tipo === 'precio-inferior') {
+                filtrados = todosResultados.filter(r => r.precio_inferior);
+            } else if (tipo === 'disponible') {
+                filtrados = todosResultados.filter(r => r.encontrado && r.disponible === true);
+            } else if (tipo === 'diferida') {
+                filtrados = todosResultados.filter(r => r.encontrado && (r.disponible === 'diferida' || r.estado_dusa === 'diferida'));
+            } else if (tipo === 'consultar') {
+                filtrados = todosResultados.filter(r => r.encontrado && (r.disponible === 'consultar' || r.estado_dusa === 'consultar'));
+            } else if (tipo === 'faltante') {
+                filtrados = todosResultados.filter(r => r.encontrado && r.disponible === false);
+            } else if (tipo === 'no-encontrado') {
+                filtrados = todosResultados.filter(r => !r.encontrado);
+            }
+            
+            actualizarTabla(filtrados);
+        }
+        
+        async function detenerVerificacion() {
+            await fetch('/detener', { method: 'POST' });
+            clearInterval(pollingInterval);
+            document.getElementById('btnDetener').classList.add('hidden');
+            document.getElementById('btnIniciar').classList.remove('hidden');
+        }
+        
+        function descargarResultado() {
+            window.location.href = '/descargar';
+        }
+    </script>
+</body>
+</html>

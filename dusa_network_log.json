@@ -1,0 +1,121 @@
+[
+  {
+    "type": "request",
+    "url": "https://pedidos.dusa.com.uy/DUSAWebUI",
+    "method": "GET",
+    "headers": {
+      "Upgrade-Insecure-Requests": "1",
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+      "sec-ch-ua": "\"Not:A-Brand\";v=\"99\", \"Google Chrome\";v=\"145\", \"Chromium\";v=\"145\"",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": "\"macOS\""
+    },
+    "postData": ""
+  },
+  {
+    "type": "response",
+    "url": "https://pedidos.dusa.com.uy/DUSAWebUI",
+    "status": 200,
+    "mimeType": "text/html"
+  },
+  {
+    "type": "request",
+    "url": "https://pedidos.dusa.com.uy/DUSAWebUI?v-1773109088926",
+    "method": "POST",
+    "headers": {
+      "Content-type": "application/x-www-form-urlencoded",
+      "Referer": "https://pedidos.dusa.com.uy/DUSAWebUI",
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+      "sec-ch-ua": "\"Not:A-Brand\";v=\"99\", \"Google Chrome\";v=\"145\", \"Chromium\";v=\"145\"",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": "\"macOS\""
+    },
+    "postData": "v-browserDetails=1&theme=mytheme&v-appId=pedidoswebui583prodDUSAWebUI-1878851580&v-sh=1050&v-sw=1680&v-cw=1680&v-ch=881&v-curdate=1773109088926&v-tzo=180&v-dstd=0&v-rtzo=180&v-dston=false&v-vw=1680&v-vh=0&v-loc=https%3A%2F%2Fpedidos.dusa.com.uy%2FDUSAWebUI&v-wn=pedidoswebui583prodDUSAWebUI-1878851580-0.18177931628102173"
+  },
+  {
+    "type": "response",
+    "url": "https://pedidos.dusa.com.uy/DUSAWebUI?v-1773109088926",
+    "status": 200,
+    "mimeType": "application/json"
+  },
+  {
+    "type": "request",
+    "url": "https://pedidos.dusa.com.uy/DUSAWebUI/UIDL/?v-wsver=7.3.8&v-uiId=0",
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/json; charset=UTF-8",
+      "Referer": "https://pedidos.dusa.com.uy/DUSAWebUI",
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+      "sec-ch-ua": "\"Not:A-Brand\";v=\"99\", \"Google Chrome\";v=\"145\", \"Chromium\";v=\"145\"",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": "\"macOS\""
+    },
+    "postData": "{\"csrfToken\":\"10f0193f-96aa-4613-9156-94558c5ff930\", \"rpc\":[[\"0\",\"com.vaadin.shared.ui.ui.UIServerRpc\",\"resize\",[\"881\",\"1680\",\"1680\",\"881\"]],[\"17\",\"v\",\"v\",[\"text\",[\"s\",\"farmacia.farma\"]]],[\"17\",\"v\",\"v\",[\"c\",[\"i\",\"14\"]]],[\"18\",\"v\",\"v\",[\"text\",[\"s\",\"Parlantes28\"]]],[\"18\",\"v\",\"v\",[\"c\",[\"i\",\"11\"]]],[\"19\",\"v\",\"v\",[\"text\",[\"s\",\"2287\"]]],[\"19\",\"v\",\"v\",[\"c\",[\"i\",\"4\"]]]], \"syncId\":1}"
+  },
+  {
+    "type": "response",
+    "url": "https://pedidos.dusa.com.uy/DUSAWebUI/UIDL/?v-wsver=7.3.8&v-uiId=0",
+    "status": 200,
+    "mimeType": "application/json"
+  },
+  {
+    "type": "request",
+    "url": "https://pedidos.dusa.com.uy/DUSAWebUI/UIDL/?v-uiId=0",
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/json; charset=UTF-8",
+      "Referer": "https://pedidos.dusa.com.uy/DUSAWebUI",
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+      "sec-ch-ua": "\"Not:A-Brand\";v=\"99\", \"Google Chrome\";v=\"145\", \"Chromium\";v=\"145\"",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": "\"macOS\""
+    },
+    "postData": "{\"csrfToken\":\"10f0193f-96aa-4613-9156-94558c5ff930\", \"rpc\":[[\"20\",\"com.vaadin.shared.ui.button.ButtonServerRpc\",\"disableOnClick\",[]],[\"20\",\"com.vaadin.shared.ui.button.ButtonServerRpc\",\"click\",[{\"shiftKey\":false, \"ctrlKey\":false, \"altKey\":false, \"type\":\"1\", \"metaKey\":false, \"clientY\":\"525\", \"clientX\":\"1187\", \"button\":\"LEFT\", \"relativeX\":\"43\", \"relativeY\":\"13\"}]]], \"syncId\":2}"
+  },
+  {
+    "type": "response",
+    "url": "https://pedidos.dusa.com.uy/DUSAWebUI/UIDL/?v-uiId=0",
+    "status": 200,
+    "mimeType": "application/json"
+  },
+  {
+    "type": "request",
+    "url": "https://pedidos.dusa.com.uy/DUSAWebUI/UIDL/?v-uiId=0",
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/json; charset=UTF-8",
+      "Referer": "https://pedidos.dusa.com.uy/DUSAWebUI",
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+      "sec-ch-ua": "\"Not:A-Brand\";v=\"99\", \"Google Chrome\";v=\"145\", \"Chromium\";v=\"145\"",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": "\"macOS\""
+    },
+    "postData": "{\"csrfToken\":\"10f0193f-96aa-4613-9156-94558c5ff930\", \"rpc\":[[\"0\",\"v\",\"v\",[\"location\",[\"s\",\"https://pedidos.dusa.com.uy/DUSAWebUI#!micuenta/productos\"]]]], \"syncId\":3}"
+  },
+  {
+    "type": "response",
+    "url": "https://pedidos.dusa.com.uy/DUSAWebUI/UIDL/?v-uiId=0",
+    "status": 200,
+    "mimeType": "application/json"
+  },
+  {
+    "type": "request",
+    "url": "https://pedidos.dusa.com.uy/DUSAWebUI/UIDL/?v-uiId=0",
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/json; charset=UTF-8",
+      "Referer": "https://pedidos.dusa.com.uy/DUSAWebUI",
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+      "sec-ch-ua": "\"Not:A-Brand\";v=\"99\", \"Google Chrome\";v=\"145\", \"Chromium\";v=\"145\"",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": "\"macOS\""
+    },
+    "postData": "{\"csrfToken\":\"10f0193f-96aa-4613-9156-94558c5ff930\", \"rpc\":[[\"89\",\"v\",\"v\",[\"text\",[\"s\",\"7891010604141\"]]],[\"89\",\"v\",\"v\",[\"c\",[\"i\",\"13\"]]],[\"0\",\"v\",\"v\",[\"actiontarget\",[\"c\",\"89\"]]],[\"0\",\"v\",\"v\",[\"action\",[\"s\",\"24\"]]]], \"syncId\":4}"
+  },
+  {
+    "type": "response",
+    "url": "https://pedidos.dusa.com.uy/DUSAWebUI/UIDL/?v-uiId=0",
+    "status": 200,
+    "mimeType": "application/json"
+  }
+]

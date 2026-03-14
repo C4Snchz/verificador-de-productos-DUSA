@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificador DUSA - Instalar</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            width: 100%;
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        h1 {
+            color: #1e3c72;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .bookmarklet-btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            padding: 20px 40px;
+            border-radius: 12px;
+            font-size: 1.2em;
+            font-weight: bold;
+            text-decoration: none;
+            cursor: grab;
+            box-shadow: 0 4px 15px rgba(30, 60, 114, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin: 20px 0;
+        }
+        .bookmarklet-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(30, 60, 114, 0.5);
+        }
+        .bookmarklet-btn:active {
+            cursor: grabbing;
+        }
+        .steps {
+            text-align: left;
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .step {
+            display: flex;
+            align-items: flex-start;
+            margin: 15px 0;
+        }
+        .step-number {
+            background: #1e3c72;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        .step-text {
+            color: #333;
+            line-height: 1.5;
+        }
+        .step-text strong {
+            color: #1e3c72;
+        }
+        .arrow {
+            font-size: 2em;
+            color: #1e3c72;
+            margin: 10px 0;
+        }
+        .note {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 0 8px 8px 0;
+            text-align: left;
+        }
+        .note-title {
+            font-weight: bold;
+            color: #2e7d32;
+            margin-bottom: 5px;
+        }
+        .demo-gif {
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 2px solid #eee;
+            max-width: 100%;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 0 8px 8px 0;
+            text-align: left;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>🔍 Verificador DUSA</h1>
+            <p class="subtitle">Verifica disponibilidad de productos en segundos</p>
+            
+            <div class="arrow">⬇️</div>
+            
+            <p><strong>Arrastra este botón a tu barra de favoritos:</strong></p>
+            
+            <!-- El bookmarklet -->
+            <a class="bookmarklet-btn" href="javascript:(function(){var s=document.createElement('script');s.src='https://tudominio.com/verificador.js?v='+Date.now();document.body.appendChild(s);})();">
+                📦 Verificador DUSA
+            </a>
+            
+            <div class="steps">
+                <h3 style="margin-bottom: 15px; color: #1e3c72;">Cómo usar:</h3>
+                
+                <div class="step">
+                    <span class="step-number">1</span>
+                    <span class="step-text">
+                        <strong>Arrastra</strong> el botón azul de arriba a tu barra de favoritos
+                        (solo una vez)
+                    </span>
+                </div>
+                
+                <div class="step">
+                    <span class="step-number">2</span>
+                    <span class="step-text">
+                        Abre <strong>pedidos.dusa.com.uy</strong> e inicia sesión
+                    </span>
+                </div>
+                
+                <div class="step">
+                    <span class="step-number">3</span>
+                    <span class="step-text">
+                        Haz <strong>clic en el favorito</strong> "Verificador DUSA"
+                    </span>
+                </div>
+                
+                <div class="step">
+                    <span class="step-number">4</span>
+                    <span class="step-text">
+                        <strong>Sube tu Excel</strong> y espera los resultados
+                    </span>
+                </div>
+            </div>
+            
+            <div class="note">
+                <div class="note-title">✅ Sin instalar nada</div>
+                <p>El verificador corre en tu navegador usando tu conexión a DUSA. 
+                No enviamos tus datos a ningún servidor.</p>
+            </div>
+            
+            <div class="warning">
+                <strong>⚠️ Importante:</strong> Si no ves la barra de favoritos, 
+                presiona <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> (Windows) 
+                o <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> (Mac) para mostrarla.
+            </div>
+        </div>
+    </div>
+</body>
+</html>
