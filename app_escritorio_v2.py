@@ -1165,13 +1165,13 @@ def subir_archivo():
 
 def leer_excel(filepath):
     """Lee el Excel de Mercado Libre - COPIA EXACTA DE APP_WEB.PY."""
-    xl = pd.ExcelFile(filepath)
+    xl = pd.ExcelFile(filepath, engine='openpyxl')
     
     # Si tiene hoja "Publicaciones", usarla con skiprows=2
     if 'Publicaciones' in xl.sheet_names:
-        df = pd.read_excel(xl, sheet_name='Publicaciones', skiprows=2)
+        df = pd.read_excel(xl, sheet_name='Publicaciones', skiprows=2, engine='openpyxl')
     else:
-        df = pd.read_excel(xl)
+        df = pd.read_excel(xl, engine='openpyxl')
     
     # Normalizar nombres de columnas
     col_map = {}
