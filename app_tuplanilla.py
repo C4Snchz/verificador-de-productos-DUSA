@@ -600,8 +600,8 @@ def procesar_verificacion(filepath, usuario, password, cliente):
     estado['tiempo_inicio'] = time.time()
     
     try:
-        # Cargar Excel
-        df = pd.read_excel(filepath)
+        # Cargar Excel (especificar engine para evitar errores)
+        df = pd.read_excel(filepath, engine='openpyxl')
         estado['total'] = len(df)
         
         # Iniciar navegador

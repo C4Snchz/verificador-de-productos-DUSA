@@ -24,17 +24,31 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller
+          pip install pyinstaller cairosvg pillow
+      
+      - name: Generate Windows icon from SVG
+        run: |
+          python -c "
+          import cairosvg
+          from PIL import Image
+          import io
+          
+          # Convertir SVG a PNG grande
+          png_data = cairosvg.svg2png(url='icon.svg', output_width=256, output_height=256)
+          img = Image.open(io.BytesIO(png_data))
+          
+          # Crear tamaños para ICO
+          sizes = [(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
+          imgs = [img.resize(size, Image.LANCZOS) for size in sizes]
+          
+          # Guardar como ICO
+          imgs[0].save('icon.ico', format='ICO', sizes=sizes, append_images=imgs[1:])
+          print('icon.ico created successfully')
+          "
       
       - name: Build Windows executable
         run: |
           pyinstaller --onefile --noconsole --name "VerificadorDUSA" --icon "icon.ico" app_tuplanilla.py
-        continue-on-error: true
-      
-      - name: Build Windows (fallback without icon)
-        if: failure()
-        run: |
-          pyinstaller --onefile --noconsole --name "VerificadorDUSA" app_tuplanilla.py
       
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -56,11 +70,46 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller
+          pip install pyinstaller cairosvg pillow
+      
+      - name: Generate Mac icon from SVG
+        run: |
+          python3 << 'EOF'
+          import cairosvg
+          from PIL import Image
+          import io
+          import os
+          import subprocess
+          
+          # Crear iconset directory
+          os.makedirs('icon.iconset', exist_ok=True)
+          
+          # Tamaños requeridos para iconset de Mac
+          sizes = [16, 32, 64, 128, 256, 512, 1024]
+          
+          for size in sizes:
+              # Normal
+              png_data = cairosvg.svg2png(url='icon.svg', output_width=size, output_height=size)
+              img = Image.open(io.BytesIO(png_data))
+              img.save(f'icon.iconset/icon_{size}x{size}.png', 'PNG')
+              
+              # @2x (retina) - solo para tamaños menores
+              if size <= 512:
+                  size2x = size * 2
+                  png_data2x = cairosvg.svg2png(url='icon.svg', output_width=size2x, output_height=size2x)
+                  img2x = Image.open(io.BytesIO(png_data2x))
+                  img2x.save(f'icon.iconset/icon_{size}x{size}@2x.png', 'PNG')
+          
+          print('iconset created successfully')
+          EOF
+          
+          # Convertir iconset a icns
+          iconutil -c icns icon.iconset -o icon.icns
+          echo "icon.icns created successfully"
       
       - name: Build Mac executable
         run: |
-          pyinstaller --onefile --noconsole --name "VerificadorDUSA" app_tuplanilla.py
+          pyinstaller --onefile --noconsole --name "VerificadorDUSA" --icon "icon.icns" app_tuplanilla.py
       
       - name: Create Mac ZIP
         run: |
