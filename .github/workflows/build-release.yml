@@ -18,7 +18,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.10'
       
       - name: Install dependencies
         run: |
@@ -26,44 +26,32 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller pillow
       
-      - name: Generate Windows icon from SVG
+      - name: Generate Windows icon
         run: |
           pip install cairosvg
           python -c "
-          import cairosvg
-          from PIL import Image
-          import io
-          
-          # Convertir SVG a PNG
-          png_data = cairosvg.svg2png(url='icon.svg', output_width=256, output_height=256)
-          img = Image.open(io.BytesIO(png_data)).convert('RGBA')
-          
-          # Crear ICO con multiples tamaños
-          sizes = [(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
-          imgs = [img.resize(size, Image.LANCZOS) for size in sizes]
-          imgs[0].save('icon.ico', format='ICO', append_images=imgs[1:])
-          print('icon.ico created')
+          try:
+              import cairosvg
+              from PIL import Image
+              import io
+              png_data = cairosvg.svg2png(url='icon.svg', output_width=256, output_height=256)
+              img = Image.open(io.BytesIO(png_data)).convert('RGBA')
+              sizes = [(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
+              imgs = [img.resize(size, Image.LANCZOS) for size in sizes]
+              imgs[0].save('icon.ico', format='ICO', append_images=imgs[1:])
+              print('icon.ico created from SVG')
+          except Exception as e:
+              print(f'SVG conversion failed: {e}')
+              from PIL import Image
+              img = Image.new('RGBA', (256,256), (147,51,234,255))
+              img.save('icon.ico', format='ICO')
+              print('Created fallback icon')
           "
         shell: bash
-        continue-on-error: true
-      
-      - name: Fallback icon (if SVG conversion fails)
-        run: |
-          if not exist icon.ico (
-            echo Creating default icon...
-            python -c "from PIL import Image; img = Image.new('RGBA', (256,256), (147,51,234,255)); img.save('icon.ico', format='ICO')"
-          )
-        shell: cmd
       
       - name: Build Windows executable
         run: |
-          pyinstaller --clean verificador.spec
-        continue-on-error: true
-      
-      - name: Build Windows (fallback simple)
-        if: failure()
-        run: |
-          pyinstaller --onefile --noconsole --name "VerificadorDUSA" --hidden-import=pandas --hidden-import=openpyxl --hidden-import=openpyxl.cell._writer --hidden-import=numpy app_tuplanilla.py
+          pyinstaller --onefile --noconsole --name "VerificadorDUSA" --icon "icon.ico" --collect-all pandas --collect-all numpy --collect-all openpyxl --hidden-import=pandas._libs.tslibs.timedeltas --hidden-import=pandas._libs.tslibs.np_datetime --hidden-import=pandas._libs.tslibs.nattype --hidden-import=openpyxl.cell._writer app_tuplanilla.py
       
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -79,7 +67,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.10'
       
       - name: Install dependencies
         run: |
@@ -87,39 +75,41 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller cairosvg pillow
       
-      - name: Generate Mac icon from SVG
+      - name: Generate Mac icon
         run: |
           python3 << 'EOF'
-          import cairosvg
-          from PIL import Image
-          import io
-          import os
-          
-          os.makedirs('icon.iconset', exist_ok=True)
-          
-          sizes = [16, 32, 64, 128, 256, 512]
-          
-          for size in sizes:
-              png_data = cairosvg.svg2png(url='icon.svg', output_width=size, output_height=size)
-              img = Image.open(io.BytesIO(png_data)).convert('RGBA')
-              img.save(f'icon.iconset/icon_{size}x{size}.png', 'PNG')
+          try:
+              import cairosvg
+              from PIL import Image
+              import io
+              import os
               
-              if size <= 512:
-                  size2x = size * 2
-                  png_data2x = cairosvg.svg2png(url='icon.svg', output_width=size2x, output_height=size2x)
-                  img2x = Image.open(io.BytesIO(png_data2x)).convert('RGBA')
-                  img2x.save(f'icon.iconset/icon_{size}x{size}@2x.png', 'PNG')
-          
-          print('iconset created')
+              os.makedirs('icon.iconset', exist_ok=True)
+              
+              sizes = [16, 32, 64, 128, 256, 512]
+              for size in sizes:
+                  png_data = cairosvg.svg2png(url='icon.svg', output_width=size, output_height=size)
+                  img = Image.open(io.BytesIO(png_data)).convert('RGBA')
+                  img.save(f'icon.iconset/icon_{size}x{size}.png', 'PNG')
+                  if size <= 256:
+                      size2x = size * 2
+                      png_data2x = cairosvg.svg2png(url='icon.svg', output_width=size2x, output_height=size2x)
+                      img2x = Image.open(io.BytesIO(png_data2x)).convert('RGBA')
+                      img2x.save(f'icon.iconset/icon_{size}x{size}@2x.png', 'PNG')
+              print('iconset created')
+          except Exception as e:
+              print(f'Icon creation failed: {e}')
           EOF
           
-          iconutil -c icns icon.iconset -o icon.icns || echo "iconutil failed, continuing without icon"
+          iconutil -c icns icon.iconset -o icon.icns 2>/dev/null || echo "iconutil skipped"
       
-      - name: Build Mac executable with spec
+      - name: Build Mac executable
         run: |
-          # Ajustar spec para Mac
-          sed -i '' "s/icon='icon.ico'/icon='icon.icns'/" verificador.spec 2>/dev/null || true
-          pyinstaller --clean verificador.spec || pyinstaller --onefile --noconsole --name "VerificadorDUSA" --hidden-import=pandas --hidden-import=openpyxl --hidden-import=numpy app_tuplanilla.py
+          if [ -f icon.icns ]; then
+            pyinstaller --onefile --noconsole --name "VerificadorDUSA" --icon "icon.icns" --collect-all pandas --collect-all numpy --collect-all openpyxl app_tuplanilla.py
+          else
+            pyinstaller --onefile --noconsole --name "VerificadorDUSA" --collect-all pandas --collect-all numpy --collect-all openpyxl app_tuplanilla.py
+          fi
       
       - name: Create Mac ZIP
         run: |
