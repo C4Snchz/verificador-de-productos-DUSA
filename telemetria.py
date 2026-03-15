@@ -17,7 +17,7 @@ from pathlib import Path
 
 # Configuración del servidor
 API_BASE_URL = "https://tuplanilla.net/api/verificador"
-VERSION_APP = "1.0.5"
+VERSION_APP = "1.0.6"
 
 # Archivo local para cache del device_id
 CACHE_DIR = Path.home() / ".verificador_dusa"

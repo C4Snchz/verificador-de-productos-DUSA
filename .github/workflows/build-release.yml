@@ -28,24 +28,62 @@ jobs:
       
       - name: Generate Windows icon
         run: |
-          pip install cairosvg
           python -c "
-          try:
-              import cairosvg
-              from PIL import Image
-              import io
-              png_data = cairosvg.svg2png(url='icon.svg', output_width=256, output_height=256)
-              img = Image.open(io.BytesIO(png_data)).convert('RGBA')
-              sizes = [(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
-              imgs = [img.resize(size, Image.LANCZOS) for size in sizes]
-              imgs[0].save('icon.ico', format='ICO', append_images=imgs[1:])
-              print('icon.ico created from SVG')
-          except Exception as e:
-              print(f'SVG conversion failed: {e}')
-              from PIL import Image
-              img = Image.new('RGBA', (256,256), (147,51,234,255))
-              img.save('icon.ico', format='ICO')
-              print('Created fallback icon')
+          from PIL import Image, ImageDraw
+          
+          def create_tuplanilla_icon(size=256):
+              '''Crea el ícono de Tu Planilla programáticamente'''
+              img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+              draw = ImageDraw.Draw(img)
+              
+              # Fondo con gradiente simulado (púrpura a rosa)
+              for y in range(size):
+                  r = int(147 + (236 - 147) * y / size)
+                  g = int(51 + (72 - 51) * y / size)
+                  b = int(234 + (153 - 234) * y / size)
+                  draw.line([(0, y), (size, y)], fill=(r, g, b, 255))
+              
+              # Máscara para esquinas redondeadas
+              mask = Image.new('L', (size, size), 0)
+              mask_draw = ImageDraw.Draw(mask)
+              radius = size // 5
+              mask_draw.rounded_rectangle([0, 0, size-1, size-1], radius=radius, fill=255)
+              img.putalpha(mask)
+              
+              # Dibujar el cubo 3D (logo Tu Planilla) en blanco
+              cx, cy = size // 2, size // 2
+              scale = size / 50  # Escalar desde el viewBox de 50x50
+              
+              # Puntos del cubo (del SVG original)
+              points_top = [(25, 10), (38, 18), (25, 26), (12, 18)]
+              points_top = [(int(x * scale), int(y * scale)) for x, y in points_top]
+              
+              # Líneas del cubo
+              lines = [
+                  ((12, 18), (12, 32)),
+                  ((25, 26), (25, 40)),
+                  ((38, 18), (38, 32)),
+                  ((12, 32), (25, 40)),
+                  ((25, 40), (38, 32)),
+              ]
+              
+              line_width = max(2, int(2.5 * scale))
+              
+              # Dibujar polígono superior
+              draw.polygon(points_top, outline='white', width=line_width)
+              
+              # Dibujar líneas
+              for (x1, y1), (x2, y2) in lines:
+                  draw.line([(int(x1*scale), int(y1*scale)), (int(x2*scale), int(y2*scale))], 
+                           fill='white', width=line_width)
+              
+              return img
+          
+          # Crear ícono con múltiples tamaños para Windows
+          sizes = [16, 32, 48, 64, 128, 256]
+          icons = [create_tuplanilla_icon(s) for s in sizes]
+          icons[0].save('icon.ico', format='ICO', append_images=icons[1:], sizes=[(s,s) for s in sizes])
+          print('✅ icon.ico created with Tu Planilla logo')
           "
         shell: bash
       
@@ -73,32 +111,69 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller cairosvg pillow
+          pip install pyinstaller pillow
       
       - name: Generate Mac icon
         run: |
           python3 << 'EOF'
-          try:
-              import cairosvg
-              from PIL import Image
-              import io
-              import os
+          from PIL import Image, ImageDraw
+          import os
+          
+          def create_tuplanilla_icon(size=256):
+              '''Crea el ícono de Tu Planilla programáticamente'''
+              img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+              draw = ImageDraw.Draw(img)
               
-              os.makedirs('icon.iconset', exist_ok=True)
+              # Fondo con gradiente simulado (púrpura a rosa)
+              for y in range(size):
+                  r = int(147 + (236 - 147) * y / size)
+                  g = int(51 + (72 - 51) * y / size)
+                  b = int(234 + (153 - 234) * y / size)
+                  draw.line([(0, y), (size, y)], fill=(r, g, b, 255))
               
-              sizes = [16, 32, 64, 128, 256, 512]
-              for size in sizes:
-                  png_data = cairosvg.svg2png(url='icon.svg', output_width=size, output_height=size)
-                  img = Image.open(io.BytesIO(png_data)).convert('RGBA')
-                  img.save(f'icon.iconset/icon_{size}x{size}.png', 'PNG')
-                  if size <= 256:
-                      size2x = size * 2
-                      png_data2x = cairosvg.svg2png(url='icon.svg', output_width=size2x, output_height=size2x)
-                      img2x = Image.open(io.BytesIO(png_data2x)).convert('RGBA')
-                      img2x.save(f'icon.iconset/icon_{size}x{size}@2x.png', 'PNG')
-              print('iconset created')
-          except Exception as e:
-              print(f'Icon creation failed: {e}')
+              # Máscara para esquinas redondeadas
+              mask = Image.new('L', (size, size), 0)
+              mask_draw = ImageDraw.Draw(mask)
+              radius = size // 5
+              mask_draw.rounded_rectangle([0, 0, size-1, size-1], radius=radius, fill=255)
+              img.putalpha(mask)
+              
+              # Dibujar el cubo 3D (logo Tu Planilla) en blanco
+              scale = size / 50
+              
+              # Puntos del cubo
+              points_top = [(25, 10), (38, 18), (25, 26), (12, 18)]
+              points_top = [(int(x * scale), int(y * scale)) for x, y in points_top]
+              
+              lines = [
+                  ((12, 18), (12, 32)),
+                  ((25, 26), (25, 40)),
+                  ((38, 18), (38, 32)),
+                  ((12, 32), (25, 40)),
+                  ((25, 40), (38, 32)),
+              ]
+              
+              line_width = max(2, int(2.5 * scale))
+              draw.polygon(points_top, outline='white', width=line_width)
+              
+              for (x1, y1), (x2, y2) in lines:
+                  draw.line([(int(x1*scale), int(y1*scale)), (int(x2*scale), int(y2*scale))], 
+                           fill='white', width=line_width)
+              
+              return img
+          
+          # Crear iconset para Mac
+          os.makedirs('icon.iconset', exist_ok=True)
+          
+          sizes = [16, 32, 64, 128, 256, 512]
+          for size in sizes:
+              icon = create_tuplanilla_icon(size)
+              icon.save(f'icon.iconset/icon_{size}x{size}.png', 'PNG')
+              if size <= 256:
+                  icon2x = create_tuplanilla_icon(size * 2)
+                  icon2x.save(f'icon.iconset/icon_{size}x{size}@2x.png', 'PNG')
+          
+          print('✅ iconset created with Tu Planilla logo')
           EOF
           
           iconutil -c icns icon.iconset -o icon.icns 2>/dev/null || echo "iconutil skipped"
