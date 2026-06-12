@@ -20,6 +20,24 @@ import signal
 import sys
 import atexit
 import subprocess
+import requests as http_requests
+
+TUPLANILLA_URL = os.environ.get('TUPLANILLA_URL', 'https://tuplanilla.net')
+
+def _cargar_config_empresa():
+    """Lee empresa_slug del config.json si existe, sino usa env var."""
+    slug = os.environ.get('TUPLANILLA_EMPRESA', '')
+    if slug:
+        return slug
+    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
+    try:
+        with open(config_path, 'r') as f:
+            import json as _json
+            return _json.load(f).get('empresa_slug', '')
+    except Exception:
+        return ''
+
+EMPRESA_SLUG = _cargar_config_empresa()
 
 # Selenium
 from selenium import webdriver
@@ -640,33 +658,81 @@ HTML_TEMPLATE = '''
         
         <!-- Upload Section -->
         <div class="card" id="upload-section">
-            <h2>📁 Archivo Excel de Mercado Libre</h2>
-            <div class="upload-zone" id="upload-zone">
-                <input type="file" id="file-input" accept=".xlsx,.xls">
-                <div class="icon">📄</div>
-                <p>Arrastra tu archivo Excel aquí</p>
-                <p style="font-size: 12px;">o haz clic para seleccionar</p>
+            <!-- Tabs -->
+            <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;">
+                <button id="tab-magento" onclick="switchTab('magento')"
+                    style="flex:1;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:8px 0 0 0;font-size:14px;font-weight:600;cursor:pointer;">
+                    🏪 Magento
+                </button>
+                <button id="tab-excel" onclick="switchTab('excel')"
+                    style="flex:1;padding:10px;background:var(--surface);color:var(--text-muted);border:none;border-radius:0 8px 0 0;font-size:14px;font-weight:600;cursor:pointer;border-left:1px solid var(--border);">
+                    📄 Excel MercadoLibre
+                </button>
             </div>
-            <div id="file-info" class="file-info hidden">
-                <div>
-                    <span class="name" id="file-name"></span>
-                    <span class="count" id="file-count"></span>
+
+            <!-- Tab Magento -->
+            <div id="panel-magento">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+                    <div>
+                        <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">Estado</label>
+                        <select id="mg-estado" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);">
+                            <option value="all">Todos</option>
+                            <option value="activo" selected>✅ Solo activos</option>
+                            <option value="inactivo">⏸ Solo inactivos</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">Stock</label>
+                        <select id="mg-stock" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);">
+                            <option value="all">Todos</option>
+                            <option value="con" selected>📦 Con stock</option>
+                            <option value="sin">❌ Sin stock</option>
+                        </select>
+                    </div>
                 </div>
-                <button onclick="clearFile()">❌</button>
+                <div style="margin-bottom:14px;">
+                    <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">Buscar por nombre (opcional)</label>
+                    <input id="mg-busqueda" type="text" placeholder="ej: paracetamol, vitamina…"
+                        style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);box-sizing:border-box;">
+                </div>
+                <div id="mg-progress" style="display:none;margin-bottom:12px;">
+                    <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden;margin-bottom:6px;">
+                        <div id="mg-progress-fill" style="height:100%;background:var(--primary);width:0;transition:width .3s;"></div>
+                    </div>
+                    <div id="mg-progress-text" style="font-size:12px;color:var(--text-muted);"></div>
+                </div>
+                <div id="mg-result" style="display:none;margin-bottom:12px;padding:8px 12px;background:#d1fae5;border-radius:6px;font-size:13px;color:#065f46;">
+                </div>
+                <button class="btn btn-primary" id="btn-cargar-magento" onclick="cargarDesdeMagento()" style="width:100%;margin-bottom:10px;">
+                    ⬇️ Cargar productos desde Magento
+                </button>
             </div>
-            <div id="preview-section" class="preview-section hidden">
-                <table class="preview-table">
-                    <thead>
-                        <tr>
-                            <th>SKU</th>
-                            <th>Título</th>
-                            <th>Precio ML</th>
-                            <th>Stock ML</th>
-                        </tr>
-                    </thead>
-                    <tbody id="preview-body"></tbody>
-                </table>
+
+            <!-- Tab Excel (original, sin cambios) -->
+            <div id="panel-excel" style="display:none;">
+                <div class="upload-zone" id="upload-zone">
+                    <input type="file" id="file-input" accept=".xlsx,.xls">
+                    <div class="icon">📄</div>
+                    <p>Arrastra tu archivo Excel aquí</p>
+                    <p style="font-size: 12px;">o haz clic para seleccionar</p>
+                </div>
+                <div id="file-info" class="file-info hidden">
+                    <div>
+                        <span class="name" id="file-name"></span>
+                        <span class="count" id="file-count"></span>
+                    </div>
+                    <button onclick="clearFile()">❌</button>
+                </div>
+                <div id="preview-section" class="preview-section hidden">
+                    <table class="preview-table">
+                        <thead>
+                            <tr><th>SKU</th><th>Título</th><th>Precio ML</th><th>Stock ML</th></tr>
+                        </thead>
+                        <tbody id="preview-body"></tbody>
+                    </table>
+                </div>
             </div>
+
             <button class="btn btn-primary" id="btn-start" onclick="startVerification()" disabled>
                 🚀 Iniciar Verificación
             </button>
@@ -762,8 +828,76 @@ HTML_TEMPLATE = '''
         let productos = [];
         let archivoNombre = '';
         let pollingInterval = null;
-        let allResultados = [];  // Todos los resultados sin filtrar
-        let currentFilter = 'todos';  // Filtro actual
+        let allResultados = [];
+        let currentFilter = 'todos';
+        let activeTab = 'magento';
+
+        function switchTab(tab) {
+            activeTab = tab;
+            document.getElementById('panel-magento').style.display = tab === 'magento' ? '' : 'none';
+            document.getElementById('panel-excel').style.display   = tab === 'excel'   ? '' : 'none';
+            const btnMg = document.getElementById('tab-magento');
+            const btnXl = document.getElementById('tab-excel');
+            if (tab === 'magento') {
+                btnMg.style.background = 'var(--primary)'; btnMg.style.color = '#fff';
+                btnXl.style.background = 'var(--surface)'; btnXl.style.color = 'var(--text-muted)';
+            } else {
+                btnXl.style.background = 'var(--primary)'; btnXl.style.color = '#fff';
+                btnMg.style.background = 'var(--surface)'; btnMg.style.color = 'var(--text-muted)';
+            }
+            // Si cambia al tab de excel y no hay productos, deshabilitar iniciar
+            if (tab === 'excel' && activeTab !== 'magento') {
+                document.getElementById('btn-start').disabled = productos.length === 0;
+            }
+        }
+
+        async function cargarDesdeMagento() {
+            const btn      = document.getElementById('btn-cargar-magento');
+            const progEl   = document.getElementById('mg-progress');
+            const fillEl   = document.getElementById('mg-progress-fill');
+            const textEl   = document.getElementById('mg-progress-text');
+            const resultEl = document.getElementById('mg-result');
+
+            const estado   = document.getElementById('mg-estado').value;
+            const stock    = document.getElementById('mg-stock').value;
+            const busqueda = document.getElementById('mg-busqueda').value.trim();
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Cargando…';
+            progEl.style.display  = '';
+            resultEl.style.display = 'none';
+            fillEl.style.width = '0%';
+            productos = [];
+
+            try {
+                const res = await fetch('/cargar-magento', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ estado, stock, busqueda })
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'Error desconocido');
+
+                productos = data.productos;
+                fillEl.style.width = '100%';
+                textEl.textContent = `${productos.length} productos cargados`;
+
+                resultEl.textContent = `✅ ${productos.length} productos listos para verificar (${data.pages} páginas)`;
+                resultEl.style.background = '#d1fae5';
+                resultEl.style.color = '#065f46';
+                resultEl.style.display = '';
+                document.getElementById('btn-start').disabled = false;
+            } catch(e) {
+                resultEl.textContent = '❌ ' + e.message;
+                resultEl.style.background = '#fee2e2';
+                resultEl.style.color = '#991b1b';
+                resultEl.style.display = '';
+                fillEl.style.width = '0%';
+            }
+
+            btn.disabled = false;
+            btn.textContent = '⬇️ Cargar productos desde Magento';
+        }
         
         // Funciones de filtrado
         function setFilter(filter) {
@@ -993,27 +1127,28 @@ HTML_TEMPLATE = '''
             }
             
             if (productos.length === 0) {
-                alert('Por favor sube un archivo Excel con productos');
+                alert('Primero cargá productos desde Magento o subí un archivo Excel');
                 return;
             }
-            
+
             saveCredentials();
-            
+
             // Mostrar progreso
             document.getElementById('login-section').classList.add('hidden');
             document.getElementById('upload-section').classList.add('hidden');
             document.getElementById('progress-section').classList.remove('hidden');
             document.getElementById('results-section').classList.remove('hidden');
             document.getElementById('results-body').innerHTML = '';
-            
+
             try {
                 const response = await fetch('/iniciar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        usuario, password, cliente, 
+                        usuario, password, cliente,
                         ventanas: parseInt(ventanas),
-                        archivo: archivoNombre
+                        archivo: archivoNombre,
+                        productos_json: activeTab === 'magento' ? productos : null
                     })
                 });
                 
@@ -1336,27 +1471,99 @@ def generar_excel_profesional(resultados, filepath):
         return True
 
 
+@app.route('/cargar-magento', methods=['POST'])
+def cargar_magento():
+    """Carga todos los productos desde Tu Planilla / Magento paginando."""
+    data = request.get_json(force=True, silent=True) or {}
+    estado_f  = data.get('estado',   'activo')
+    stock_f   = data.get('stock',    'con')
+    busqueda  = data.get('busqueda', '')
+
+    tuplanilla_url = os.environ.get('TUPLANILLA_URL', 'https://tuplanilla.net')
+    empresa_slug   = EMPRESA_SLUG or 'farmauy'
+
+    try:
+        todos = []
+        page  = 1
+        pages = 1
+        while page <= pages:
+            params = {
+                'empresa_slug': empresa_slug,
+                'estado':   estado_f,
+                'stock':    stock_f,
+                'page':     page,
+                'page_size': 200,
+            }
+            if busqueda:
+                params['busqueda'] = busqueda
+
+            r = http_requests.get(
+                f'{tuplanilla_url}/api/magento/productos',
+                params=params,
+                timeout=30,
+            )
+            if r.status_code != 200:
+                return jsonify({'success': False, 'error': f'Error {r.status_code} de Tu Planilla'}), 500
+
+            body = r.json()
+            if not body.get('ok'):
+                return jsonify({'success': False, 'error': body.get('error', 'Error desconocido')}), 500
+
+            todos.extend(body.get('productos', []))
+            pages = body.get('pages', 1)
+            page += 1
+
+        # Normalizar al formato que espera el verificador
+        productos_norm = []
+        for p in todos:
+            productos_norm.append({
+                'sku':       str(p.get('sku', '')),
+                'titulo':    p.get('titulo', ''),
+                'precio_ml': float(p.get('precio', 0) or 0),
+                'stock_ml':  str(p.get('stock', 0)),
+                'estado_ml': p.get('estado', 'Activo'),
+            })
+
+        return jsonify({
+            'success':   True,
+            'productos': productos_norm,
+            'total':     len(productos_norm),
+            'pages':     pages,
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/iniciar', methods=['POST'])
 def iniciar_verificacion():
     """Inicia la verificación."""
     global estado
-    
+
     if estado['procesando']:
         return jsonify({'error': 'Ya hay un proceso en curso'}), 400
-    
+
     data = request.json
-    archivo = data.get('archivo')
     ventanas = max(1, min(6, int(data.get('ventanas', 3))))
-    
-    if not archivo:
-        return jsonify({'error': 'No se especificó archivo'}), 400
-    
-    filepath = os.path.join(UPLOAD_FOLDER, archivo)
-    if not os.path.exists(filepath):
-        return jsonify({'error': 'Archivo no encontrado'}), 400
-    
-    with progress_lock:
+
+    # Productos vienen inline (tab Magento) o desde archivo Excel (tab ML)
+    productos_json = data.get('productos_json')
+    if productos_json:
+        productos = productos_json
+        filepath  = None
+    else:
+        archivo = data.get('archivo')
+        if not archivo:
+            return jsonify({'error': 'No se especificó archivo ni productos'}), 400
+        filepath = os.path.join(UPLOAD_FOLDER, archivo)
+        if not os.path.exists(filepath):
+            return jsonify({'error': 'Archivo no encontrado'}), 400
         productos = leer_excel(filepath)
+
+    if not productos:
+        return jsonify({'error': 'Sin productos para verificar'}), 400
+
+    with progress_lock:
         estado = {
             'procesando': True,
             'progreso': 0,
@@ -1369,16 +1576,15 @@ def iniciar_verificacion():
             'detenido': False,
             'archivo_resultado': None
         }
-    
-    # Iniciar en thread separado
+
     thread = threading.Thread(
         target=procesar_verificacion,
-        args=(data['usuario'], data['password'], data['cliente'], 
-              productos, ventanas, filepath)
+        args=(data['usuario'], data['password'], data['cliente'],
+              productos, ventanas, filepath or '', EMPRESA_SLUG)
     )
     thread.daemon = True
     thread.start()
-    
+
     return jsonify({'success': True, 'mensaje': f'Verificación iniciada con {ventanas} ventana(s)'})
 
 
@@ -1643,7 +1849,43 @@ def buscar_producto(driver, producto):
         return resultado
 
 
-def procesar_verificacion(usuario, password, cliente, productos, num_ventanas, filepath_original):
+def enviar_a_tuplanilla(resultados, empresa_slug):
+    """Envía los precios de costo al panel de Tu Planilla."""
+    if not empresa_slug:
+        return
+    try:
+        productos_payload = []
+        for r in resultados:
+            sku = str(r.get('sku', '')).strip()
+            if not sku or sku == 'nan':
+                continue
+            estado_dusa = r.get('estado_dusa') or r.get('estado', '')
+            productos_payload.append({
+                'sku': sku,
+                'nombre_dusa': r.get('nombre_dusa') or r.get('nombre', ''),
+                'laboratorio': r.get('laboratorio', ''),
+                'precio_dusa': r.get('precio_dusa', ''),
+                'estado_dusa': estado_dusa,
+                'disponible': estado_dusa == 'disponible',
+                'oferta': r.get('oferta_dusa') or r.get('mensaje', ''),
+            })
+        if not productos_payload:
+            return
+        resp = http_requests.post(
+            f'{TUPLANILLA_URL}/api/panel-precios/importar-dusa',
+            json={'empresa_slug': empresa_slug, 'productos': productos_payload},
+            timeout=30,
+        )
+        if resp.status_code == 200:
+            d = resp.json()
+            print(f"[TuPlanilla] Sincronizado: {d.get('creados', 0)} nuevos, {d.get('actualizados', 0)} actualizados")
+        else:
+            print(f"[TuPlanilla] Error {resp.status_code} al sincronizar precios")
+    except Exception as e:
+        print(f"[TuPlanilla] Sin conexión o error al enviar precios: {e}")
+
+
+def procesar_verificacion(usuario, password, cliente, productos, num_ventanas, filepath_original, empresa_slug=''):
     """Procesa la verificación con múltiples ventanas."""
     global estado, active_drivers
     
@@ -1766,6 +2008,12 @@ def procesar_verificacion(usuario, password, cliente, productos, num_ventanas, f
             
             estado['archivo_resultado'] = filepath_resultado
             estado['procesando'] = False
+
+            # Sincronizar precios con Tu Planilla si se configuró empresa
+            if empresa_slug:
+                estado['mensaje'] = 'Sincronizando precios con Tu Planilla...'
+                enviar_a_tuplanilla(resultados, empresa_slug)
+
             estado['mensaje'] = f'✅ Completado: {len(resultados)} productos. Excel guardado en Escritorio.'
             
     finally:
