@@ -194,6 +194,7 @@ class VerificadorDUSA:
             "nombre_dusa": None,
             "oferta_dusa": None,
             "laboratorio": None,
+            "controlado": False,
             "mensaje": ""
         }
         
@@ -302,6 +303,7 @@ class VerificadorDUSA:
                     # Columnas: Stock(0), Descripción(1), Laboratorio(2), Oferta(3), Precio(4)
                     try:
                         resultado["nombre_dusa"] = celdas[1].text.strip().split('\n')[0]  # Solo primera línea
+                        resultado["controlado"] = "*" in resultado["nombre_dusa"]
                     except:
                         pass
                     
@@ -323,6 +325,7 @@ class VerificadorDUSA:
                 elif len(celdas) >= 2:
                     # Formato alternativo
                     resultado["nombre_dusa"] = primera_fila.text.split('\n')[0][:50]
+                    resultado["controlado"] = "*" in resultado["nombre_dusa"]
                 
             else:
                 resultado["mensaje"] = "Sin resultados"
@@ -458,6 +461,7 @@ class VerificadorDUSA:
             "termino_busqueda",
             "encontrado",
             "disponible",
+            "controlado",
             "nombre_dusa",
             "laboratorio",
             "oferta_dusa",
@@ -480,6 +484,7 @@ class VerificadorDUSA:
             "termino_busqueda": "Búsqueda realizada",
             "encontrado": "Encontrado",
             "disponible": "Disponible",
+            "controlado": "Controlado ⚠️",
             "nombre_dusa": "Producto (DUSA)",
             "laboratorio": "Laboratorio",
             "oferta_dusa": "Oferta",
@@ -491,23 +496,49 @@ class VerificadorDUSA:
         
         df_resultados = df_resultados.rename(columns=nombres_columnas)
         
-        # Guardar Excel
+        # Guardar Excel con resaltado de controlados
         df_resultados.to_excel(ruta_salida, index=False, engine='openpyxl')
-        
+
+        # Resaltar filas controladas en rojo
+        try:
+            from openpyxl import load_workbook
+            from openpyxl.styles import PatternFill, Font
+            wb_out = load_workbook(ruta_salida)
+            ws_out = wb_out.active
+            col_ctrl = None
+            for cell in ws_out[1]:
+                if cell.value and "Controlado" in str(cell.value):
+                    col_ctrl = cell.column
+                    cell.fill = PatternFill("solid", fgColor="C0392B")
+                    cell.font = Font(bold=True, color="FFFFFF")
+                    break
+            if col_ctrl:
+                rojo = PatternFill("solid", fgColor="FFCDD2")
+                for row in ws_out.iter_rows(min_row=2, max_row=ws_out.max_row):
+                    if row[col_ctrl - 1].value is True:
+                        for cell in row:
+                            cell.fill = rojo
+            wb_out.save(ruta_salida)
+        except Exception as e_fmt:
+            print(f"⚠️  No se pudo aplicar formato: {e_fmt}")
+
         print(f"✅ Resultados guardados en: {ruta_salida}")
-        
+
         # Mostrar resumen
         total = len(df_resultados)
         encontrados = df_resultados["Encontrado"].sum() if "Encontrado" in df_resultados.columns else 0
         disponibles = df_resultados["Disponible"].sum() if "Disponible" in df_resultados.columns else 0
+        controlados = df_resultados["Controlado ⚠️"].sum() if "Controlado ⚠️" in df_resultados.columns else 0
         faltantes = encontrados - disponibles
-        
+
         print(f"\n📊 RESUMEN:")
         print(f"   Total productos verificados: {total}")
         print(f"   Encontrados en DUSA: {encontrados}")
         print(f"   ✅ Disponibles: {disponibles}")
         print(f"   ❌ Faltantes: {faltantes}")
         print(f"   ⚠️  No encontrados: {total - encontrados}")
+        if controlados:
+            print(f"   🔴 CONTROLADOS detectados: {controlados}")
     
     def cerrar(self):
         """Cierra el navegador."""
