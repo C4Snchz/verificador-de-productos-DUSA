@@ -43,7 +43,8 @@ estado_global = {
     'velocidad': 0,
     'ventanas': 1,
     'ventanas_activas': 0,
-    'tiempos_productos': []  # Para calcular promedio
+    'tiempos_productos': [],  # Para calcular promedio
+    'controlados': 0,
 }
 
 import threading
@@ -119,7 +120,7 @@ def iniciar_verificacion():
         return jsonify({'error': 'Archivo no encontrado'}), 400
     
     # Validar número de ventanas
-    ventanas = max(1, min(6, int(ventanas)))
+    ventanas = max(1, min(12, int(ventanas)))
     estado_global['ventanas'] = ventanas
     
     # Iniciar en hilo separado
@@ -333,6 +334,8 @@ def procesar_lote_productos(num_ventana, productos, estado_ref):
             with progreso_lock:
                 estado_global['resultados'].append(resultado)
                 estado_global['progreso'] += 1
+                if resultado.get('controlado'):
+                    estado_global['controlados'] += 1
                 
                 # Calcular tiempo por producto
                 ahora = time.time()
@@ -392,7 +395,8 @@ def proceso_verificacion_paralelo(filepath, num_ventanas=1):
     estado_global['velocidad'] = 0
     estado_global['ventanas_activas'] = 0
     estado_global['tiempos_productos'] = []
-    
+    estado_global['controlados'] = 0
+
     try:
         # Leer productos
         productos = leer_excel(filepath)
@@ -580,7 +584,8 @@ def buscar_en_dusa(driver, sku, titulo):
         'laboratorio': '',
         'precio_inferior': False,  # True si precio ML < precio DUSA
         'diferencia_precio': None,  # Diferencia numérica
-        'alerta': ''  # Motivo de alerta para revisar
+        'alerta': '',  # Motivo de alerta para revisar
+        'controlado': False
     }
     
     # Determinar término de búsqueda
@@ -666,6 +671,7 @@ def buscar_en_dusa(driver, sku, titulo):
             celdas = primera.find_elements(By.CSS_SELECTOR, "td")
             if len(celdas) >= 5:
                 resultado['nombre_dusa'] = celdas[1].text.split('\n')[0][:40]
+                resultado['controlado'] = '*' in resultado['nombre_dusa']
                 resultado['laboratorio'] = celdas[2].text.strip()[:20]
                 resultado['oferta'] = celdas[3].text.strip()
                 resultado['precio_dusa'] = celdas[4].text.strip()
@@ -720,7 +726,7 @@ def generar_excel_resultado():
     df['alerta_revisar'] = df.apply(generar_alerta, axis=1)
     
     # Columnas en orden de importancia
-    columnas = ['alerta_revisar', 'sku', 'titulo', 'estado_final', 'nombre_dusa', 
+    columnas = ['alerta_revisar', 'controlado', 'sku', 'titulo', 'estado_final', 'nombre_dusa',
                 'precio_ml', 'precio_dusa', 'diferencia_precio',
                 'oferta', 'laboratorio', 'stock_ml', 'estado_ml']
     columnas = [c for c in columnas if c in df.columns]
@@ -728,6 +734,7 @@ def generar_excel_resultado():
     
     nombres = {
         'alerta_revisar': '⚠️ REVISAR',
+        'controlado': '🔴 Controlado',
         'sku': 'SKU',
         'titulo': 'Título ML',
         'estado_final': 'Estado DUSA',
@@ -747,12 +754,40 @@ def generar_excel_resultado():
     # Guardar con formato
     with pd.ExcelWriter(ruta, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Resultados')
-        
+
+        # Hoja de controlados
+        ctrl_col_name = '🔴 Controlado'
+        if ctrl_col_name in df.columns:
+            controlados_df = df[df[ctrl_col_name] == True]
+            if len(controlados_df) > 0:
+                controlados_df.to_excel(writer, index=False, sheet_name='🔴 Controlados')
+
         # Hoja adicional solo con productos a revisar
         revisar = df[df['⚠️ REVISAR'].astype(str).str.len() > 0]
         if len(revisar) > 0:
             revisar.to_excel(writer, index=False, sheet_name='⚠️ A REVISAR')
-    
+
+        # Resaltar filas controladas en rojo
+        from openpyxl.styles import PatternFill, Font
+        red_fill = PatternFill(start_color='FFCDD2', end_color='FFCDD2', fill_type='solid')
+        red_font = Font(bold=True, color='B71C1C')
+        header_red_fill = PatternFill(start_color='C0392B', end_color='C0392B', fill_type='solid')
+        header_red_font = Font(bold=True, color='FFFFFF')
+
+        for sheet_name in writer.sheets:
+            ws = writer.sheets[sheet_name]
+            col_names = [ws.cell(row=1, column=c).value for c in range(1, ws.max_column + 1)]
+            ctrl_idx = next((i + 1 for i, n in enumerate(col_names) if n and 'Controlado' in str(n)), None)
+            if ctrl_idx:
+                ws.cell(row=1, column=ctrl_idx).fill = header_red_fill
+                ws.cell(row=1, column=ctrl_idx).font = header_red_font
+                for row_idx in range(2, ws.max_row + 1):
+                    val = ws.cell(row=row_idx, column=ctrl_idx).value
+                    if val is True:
+                        for col_idx in range(1, ws.max_column + 1):
+                            ws.cell(row=row_idx, column=col_idx).fill = red_fill
+                        ws.cell(row=row_idx, column=ctrl_idx).font = red_font
+
     estado_global['archivo_resultado'] = ruta
 
 
@@ -978,6 +1013,17 @@ HTML_TEMPLATE = '''
         <!-- Control Section -->
         <div class="card" id="controlSection">
             <h2>🚀 Paso 2: Iniciar verificación</h2>
+            <div style="margin-bottom:15px;">
+                <label for="ventanasSelect" style="font-weight:600; color:#333;">Ventanas paralelas:</label>
+                <select id="ventanasSelect" style="margin-left:10px; padding:8px 14px; border-radius:6px; border:1px solid #ccc; font-size:14px;">
+                    <option value="1">1 ventana</option>
+                    <option value="2">2 ventanas</option>
+                    <option value="4">4 ventanas</option>
+                    <option value="6">6 ventanas</option>
+                    <option value="8">8 ventanas</option>
+                    <option value="12" selected>12 ventanas (máximo)</option>
+                </select>
+            </div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
                 <button class="btn btn-primary" id="btnIniciar" onclick="iniciarVerificacion()" disabled>
                     ▶️ Iniciar Verificación
@@ -986,12 +1032,17 @@ HTML_TEMPLATE = '''
                     ⏹️ Detener
                 </button>
             </div>
-            
+
             <div class="progress-container hidden" id="progressContainer">
                 <div class="progress-bar">
                     <div class="progress-fill" id="progressFill" style="width:0%">0%</div>
                 </div>
-                <p class="status" id="statusText">Preparando...</p>
+                <div style="display:flex; gap:15px; align-items:center; margin-top:8px; flex-wrap:wrap;">
+                    <p class="status" id="statusText">Preparando...</p>
+                    <span id="controladosBadge" style="background:#C0392B; color:white; padding:4px 14px; border-radius:20px; font-weight:bold; font-size:13px; display:none;">
+                        🔴 Controlados: <span id="controladosCount">0</span>
+                    </span>
+                </div>
             </div>
         </div>
         
@@ -1007,6 +1058,7 @@ HTML_TEMPLATE = '''
                 <div class="tab" onclick="filtrarResultados('consultar')">⚠️ Consultar</div>
                 <div class="tab" onclick="filtrarResultados('faltante')">❌ Faltantes</div>
                 <div class="tab" onclick="filtrarResultados('no-encontrado')">🔍 No encontrados</div>
+                <div class="tab" onclick="filtrarResultados('controlado')" style="background:#f8d7da; color:#721c24;">🔴 Controlados</div>
             </div>
             
             <div class="table-container">
@@ -1017,6 +1069,7 @@ HTML_TEMPLATE = '''
                             <th>Título ML</th>
                             <th>Estado</th>
                             <th>Producto DUSA</th>
+                            <th>🔴</th>
                             <th>Precio DUSA</th>
                             <th>Oferta</th>
                         </tr>
@@ -1093,12 +1146,13 @@ HTML_TEMPLATE = '''
         
         async function iniciarVerificacion() {
             if (!archivoActual) return;
-            
+
             try {
+                const ventanas = parseInt(document.getElementById('ventanasSelect').value) || 6;
                 const res = await fetch('/iniciar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ archivo: archivoActual })
+                    body: JSON.stringify({ archivo: archivoActual, ventanas: ventanas })
                 });
                 const data = await res.json();
                 
@@ -1130,6 +1184,13 @@ HTML_TEMPLATE = '''
                 document.getElementById('progressFill').style.width = porcentaje + '%';
                 document.getElementById('progressFill').textContent = porcentaje + '%';
                 document.getElementById('statusText').textContent = estado.mensaje;
+
+                // Actualizar contador de controlados
+                const controlados = estado.controlados || 0;
+                if (controlados > 0) {
+                    document.getElementById('controladosBadge').style.display = 'inline-block';
+                    document.getElementById('controladosCount').textContent = controlados;
+                }
                 
                 // Actualizar tabla
                 if (estado.resultados.length > 0) {
@@ -1154,13 +1215,17 @@ HTML_TEMPLATE = '''
                     const consultar = todosResultados.filter(r => r.encontrado && (r.disponible === 'consultar' || r.estado_dusa === 'consultar')).length;
                     const faltantes = todosResultados.filter(r => r.encontrado && r.disponible === false).length;
                     const noEncontrados = todosResultados.filter(r => !r.encontrado).length;
-                    
-                    document.getElementById('completedMessage').innerHTML = 
-                        `Se analizaron <strong>${total}</strong> productos: ` +
+                    const controladosFinal = todosResultados.filter(r => r.controlado).length;
+
+                    let msg = `Se analizaron <strong>${total}</strong> productos: ` +
                         `<strong style="color:#155724">${disponibles}</strong> disponibles, ` +
                         `<strong style="color:#856404">${consultar}</strong> a consultar, ` +
                         `<strong style="color:#721c24">${faltantes}</strong> faltantes, ` +
                         `<strong>${noEncontrados}</strong> no encontrados.`;
+                    if (controladosFinal > 0) {
+                        msg += ` <strong style="color:#B71C1C">&#128308; ${controladosFinal} CONTROLADOS DETECTADOS</strong>`;
+                    }
+                    document.getElementById('completedMessage').innerHTML = msg;
                 }
                 
             } catch (e) {
@@ -1191,11 +1256,14 @@ HTML_TEMPLATE = '''
                 
                 const tr = document.createElement('tr');
                 tr.className = clase;
+                if (r.controlado) tr.style.background = '#FFCDD2';
+                const ctrlBadge = r.controlado ? '<span style="color:#B71C1C; font-weight:bold;">&#9888; SI</span>' : '';
                 tr.innerHTML = `
                     <td>${r.sku || '-'}</td>
                     <td>${r.titulo || '-'}</td>
                     <td>${badge}</td>
                     <td>${r.nombre_dusa || '-'}</td>
+                    <td>${ctrlBadge}</td>
                     <td>${r.precio_dusa || '-'}</td>
                     <td>${r.oferta || '-'}</td>
                 `;
@@ -1209,7 +1277,8 @@ HTML_TEMPLATE = '''
             const consultar = resultados.filter(r => r.encontrado && (r.disponible === 'consultar' || r.estado_dusa === 'consultar')).length;
             const faltantes = resultados.filter(r => r.encontrado && r.disponible === false).length;
             const noEncontrados = resultados.filter(r => !r.encontrado).length;
-            
+            const controlados = resultados.filter(r => r.controlado).length;
+
             document.getElementById('summary').innerHTML = `
                 <div class="summary-card">
                     <div class="number">${total}</div>
@@ -1231,6 +1300,10 @@ HTML_TEMPLATE = '''
                     <div class="number">${noEncontrados}</div>
                     <div>🔍 No encontrados</div>
                 </div>
+                <div class="summary-card" style="background:#f8d7da;">
+                    <div class="number" style="color:#C0392B;">${controlados}</div>
+                    <div>🔴 Controlados</div>
+                </div>
             `;
         }
         
@@ -1247,6 +1320,8 @@ HTML_TEMPLATE = '''
                 filtrados = todosResultados.filter(r => r.encontrado && r.disponible === false);
             } else if (tipo === 'no-encontrado') {
                 filtrados = todosResultados.filter(r => !r.encontrado);
+            } else if (tipo === 'controlado') {
+                filtrados = todosResultados.filter(r => r.controlado);
             }
             
             actualizarTabla(filtrados);
@@ -1267,11 +1342,10 @@ HTML_TEMPLATE = '''
 </html>
 '''
 
-# Guardar template solo si no existe
+# Siempre escribir el template para reflejar cambios
 template_path = os.path.join(TEMPLATE_DIR, 'index.html')
-if not os.path.exists(template_path):
-    with open(template_path, 'w') as f:
-        f.write(HTML_TEMPLATE)
+with open(template_path, 'w') as f:
+    f.write(HTML_TEMPLATE)
 
 
 def abrir_navegador():

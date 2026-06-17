@@ -292,6 +292,7 @@ def buscar_producto(driver, sku, titulo):
         'disponible': None,
         'precio': None,
         'nombre': None,
+        'controlado': False,
         'mensaje': ''
     }
     
@@ -351,10 +352,13 @@ def buscar_producto(driver, sku, titulo):
             else:
                 resultado['mensaje'] = "⚠️ Estado desconocido"
             
-            # Intentar extraer nombre
+            # Intentar extraer nombre y detectar controlado
             celdas = primera_fila.find_elements(By.CSS_SELECTOR, "td, .v-grid-cell")
             if celdas:
-                resultado['nombre'] = celdas[0].text[:50]
+                # Columna 1 = Descripción (columna 0 = Stock icon)
+                nombre_col = celdas[1].text if len(celdas) > 1 else celdas[0].text
+                resultado['nombre'] = nombre_col.split('\n')[0][:80]
+                resultado['controlado'] = '*' in resultado['nombre']
         else:
             resultado['mensaje'] = "🔍 No encontrado"
         
@@ -399,6 +403,7 @@ def procesar_lote(numero_ventana, productos_df, barra_progreso, resultados_compa
                 'Busqueda': resultado['busqueda'],
                 'Encontrado': resultado['encontrado'],
                 'Disponible': resultado['disponible'],
+                'Controlado': resultado.get('controlado', False),
                 'Nombre DUSA': resultado.get('nombre', ''),
                 'Estado': resultado['mensaje'],
                 'Ventana': numero_ventana + 1
@@ -457,7 +462,34 @@ def guardar_resultados(resultados, nombre_base="resultado_paralelo"):
     ruta = os.path.join(os.path.expanduser("~/Downloads"), nombre_archivo)
     
     df.to_excel(ruta, index=False)
-    
+
+    # Resaltar controlados en rojo
+    try:
+        from openpyxl import load_workbook
+        from openpyxl.styles import PatternFill, Font
+        wb = load_workbook(ruta)
+        ws = wb.active
+        col_ctrl = None
+        for cell in ws[1]:
+            if str(cell.value) == 'Controlado':
+                col_ctrl = cell.column
+                cell.fill = PatternFill("solid", fgColor="C0392B")
+                cell.font = Font(bold=True, color="FFFFFF")
+                break
+        if col_ctrl:
+            rojo = PatternFill("solid", fgColor="FFCDD2")
+            n_ctrl = 0
+            for row in ws.iter_rows(min_row=2, max_row=ws.max_row):
+                if row[col_ctrl - 1].value is True:
+                    for cell in row:
+                        cell.fill = rojo
+                    n_ctrl += 1
+            if n_ctrl:
+                print(f"\n🔴 CONTROLADOS detectados: {n_ctrl}")
+        wb.save(ruta)
+    except Exception as e:
+        print(f"⚠️ Formato Excel: {e}")
+
     return ruta
 
 
@@ -466,8 +498,8 @@ def main():
     
     # Parsear argumentos de línea de comandos
     parser = argparse.ArgumentParser(description='Verificador DUSA Paralelo')
-    parser.add_argument('-w', '--ventanas', type=int, choices=[1, 2, 4, 6], 
-                        help='Número de ventanas paralelas (1, 2, 4 o 6)')
+    parser.add_argument('-w', '--ventanas', type=int, choices=[1, 2, 4, 6, 12],
+                        help='Número de ventanas paralelas (1, 2, 4, 6 o 12)')
     parser.add_argument('-a', '--archivo', type=str, 
                         help='Ruta al archivo Excel')
     parser.add_argument('-y', '--yes', action='store_true', 
@@ -503,14 +535,15 @@ def main():
     else:
         print(f"\n🪟 ¿Cuántas ventanas paralelas?")
         print(f"   Total productos: {total}")
-        print(f"   1. Una ventana (seguro, ~{total * 4 // 60} min)")
-        print(f"   2. Dos ventanas (~{total * 4 // 60 // 2} min)")
-        print(f"   4. Cuatro ventanas (~{total * 4 // 60 // 4} min)")
-        print(f"   6. Seis ventanas (~{total * 4 // 60 // 6} min)")
-        
+        print(f"   1.  Una ventana    (~{total * 4 // 60} min)")
+        print(f"   2.  Dos ventanas   (~{total * 4 // 60 // 2} min)")
+        print(f"   4.  Cuatro ventanas (~{total * 4 // 60 // 4} min)")
+        print(f"   6.  Seis ventanas  (~{total * 4 // 60 // 6} min)")
+        print(f"   12. Doce ventanas  (~{total * 4 // 60 // 12} min)")
+
         while True:
-            opcion = input("\n👉 Elige (1/2/4/6): ").strip()
-            if opcion in ['1', '2', '4', '6']:
+            opcion = input("\n👉 Elige (1/2/4/6/12): ").strip()
+            if opcion in ['1', '2', '4', '6', '12']:
                 num_ventanas = int(opcion)
                 break
             print("   Opción inválida")
