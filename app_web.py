@@ -157,6 +157,99 @@ def descargar_resultado():
     return jsonify({'error': 'No hay archivo disponible'}), 404
 
 
+@app.route('/cargar_resultados', methods=['POST'])
+def cargar_resultados():
+    """Carga un Excel de resultados previos y lo muestra en la interfaz sin re-verificar."""
+    global estado_global
+
+    if 'archivo' not in request.files:
+        return jsonify({'error': 'No se envió archivo'}), 400
+
+    archivo = request.files['archivo']
+    if not archivo.filename.endswith(('.xlsx', '.xls')):
+        return jsonify({'error': 'Solo se permiten archivos Excel (.xlsx, .xls)'}), 400
+
+    filename = secure_filename(archivo.filename)
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    archivo.save(filepath)
+
+    try:
+        df = pd.read_excel(filepath, sheet_name='Resultados')
+
+        def sv(val):
+            """Safe string: NaN → vacío."""
+            try:
+                return '' if pd.isna(val) else str(val)
+            except Exception:
+                return str(val) if val is not None else ''
+
+        resultados = []
+        for _, row in df.iterrows():
+            estado_texto = sv(row.get('Estado DUSA', ''))
+            encontrado = 'No encontrado' not in estado_texto
+
+            if 'Disponible' in estado_texto:
+                disponible, estado_dusa = True, 'disponible'
+            elif 'Consultar' in estado_texto or 'Diferida' in estado_texto:
+                disponible, estado_dusa = 'consultar', 'consultar'
+            elif 'Faltante' in estado_texto:
+                disponible, estado_dusa = False, 'faltante'
+            else:
+                disponible, estado_dusa = False, 'faltante'
+
+            if not encontrado:
+                disponible, estado_dusa = False, ''
+
+            ctrl_val = row.get('🔴 Controlado', False)
+            try:
+                ctrl_val = False if pd.isna(ctrl_val) else bool(ctrl_val)
+            except Exception:
+                ctrl_val = bool(ctrl_val)
+
+            precio_ml = row.get('Precio ML', None)
+            precio_dusa = row.get('Precio DUSA', None)
+            diferencia = row.get('Diferencia ($)', None)
+            stock = row.get('Stock ML', 0)
+
+            resultados.append({
+                'sku': sv(row.get('SKU', '')),
+                'titulo': sv(row.get('Título ML', '')),
+                'encontrado': encontrado,
+                'disponible': disponible,
+                'estado_dusa': estado_dusa,
+                'nombre_dusa': sv(row.get('Producto DUSA', '')),
+                'precio_ml': None if (precio_ml is None or (isinstance(precio_ml, float) and pd.isna(precio_ml))) else float(precio_ml),
+                'precio_dusa': None if (precio_dusa is None or (isinstance(precio_dusa, float) and pd.isna(precio_dusa))) else float(precio_dusa),
+                'diferencia_precio': None if (diferencia is None or (isinstance(diferencia, float) and pd.isna(diferencia))) else float(diferencia),
+                'oferta': sv(row.get('Oferta', '')),
+                'laboratorio': sv(row.get('Laboratorio', '')),
+                'stock_ml': 0 if (stock is None or (isinstance(stock, float) and pd.isna(stock))) else int(stock),
+                'estado_ml': sv(row.get('estado_ml', '')),
+                'controlado': ctrl_val,
+            })
+
+        controlados = sum(1 for r in resultados if r['controlado'])
+
+        estado_global.update({
+            'procesando': False,
+            'progreso': len(resultados),
+            'total': len(resultados),
+            'resultados': resultados,
+            'controlados': controlados,
+            'mensaje': '✅ Resultados cargados desde archivo previo',
+            'archivo_resultado': filepath,
+            'tiempo_inicio': None,
+            'tiempo_transcurrido': 0,
+            'tiempo_estimado': 0,
+            'velocidad': 0,
+        })
+
+        return jsonify({'success': True, 'total': len(resultados), 'controlados': controlados})
+
+    except Exception as e:
+        return jsonify({'error': f'Error leyendo resultados: {str(e)}'}), 400
+
+
 def leer_excel(filepath):
     """Lee el Excel de Mercado Libre."""
     xl = pd.ExcelFile(filepath)
@@ -1008,6 +1101,25 @@ HTML_TEMPLATE = '''
                 <p>✅ <strong id="fileName"></strong></p>
                 <p id="productCount" style="color:#666;"></p>
             </div>
+
+            <!-- Divider -->
+            <div style="display:flex; align-items:center; margin:25px 0 20px;">
+                <div style="flex:1; height:1px; background:#ddd;"></div>
+                <span style="margin:0 15px; color:#999; font-size:14px; font-weight:600;">O CARGA UN RESULTADO PREVIO</span>
+                <div style="flex:1; height:1px; background:#ddd;"></div>
+            </div>
+
+            <div class="upload-zone" id="prevZone" onclick="document.getElementById('prevInput').click()"
+                 style="border-color:#6c757d; background:#f8f9fa;">
+                <div class="icon" style="font-size:36px;">📊</div>
+                <p><strong>Cargar resultados ya verificados</strong></p>
+                <p style="margin-top:8px; font-size:12px; color:#999;">Arrastra o selecciona un Excel de resultados anteriores (resultado_dusa_*.xlsx)</p>
+                <input type="file" id="prevInput" accept=".xlsx,.xls">
+            </div>
+            <div id="prevInfo" class="hidden" style="margin-top:15px; padding:12px; background:#e8f5e9; border-radius:8px;">
+                <p>✅ <strong id="prevFileName"></strong></p>
+                <p id="prevCount" style="color:#2e7d32; font-weight:600;"></p>
+            </div>
         </div>
         
         <!-- Control Section -->
@@ -1336,6 +1448,79 @@ HTML_TEMPLATE = '''
         
         function descargarResultado() {
             window.location.href = '/descargar';
+        }
+
+        // --- Carga de resultados previos ---
+        const prevZone = document.getElementById('prevZone');
+        prevZone.addEventListener('dragover', (e) => { e.preventDefault(); prevZone.classList.add('dragover'); });
+        prevZone.addEventListener('dragleave', () => prevZone.classList.remove('dragover'));
+        prevZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            prevZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                document.getElementById('prevInput').files = e.dataTransfer.files;
+                cargarResultadoPrevio(e.dataTransfer.files[0]);
+            }
+        });
+        document.getElementById('prevInput').addEventListener('change', (e) => {
+            if (e.target.files.length) cargarResultadoPrevio(e.target.files[0]);
+        });
+
+        async function cargarResultadoPrevio(file) {
+            prevZone.style.opacity = '0.6';
+            prevZone.style.pointerEvents = 'none';
+            const formData = new FormData();
+            formData.append('archivo', file);
+
+            try {
+                const res = await fetch('/cargar_resultados', { method: 'POST', body: formData });
+                const data = await res.json();
+
+                if (data.error) { alert('Error: ' + data.error); prevZone.style.opacity = '1'; prevZone.style.pointerEvents = ''; return; }
+
+                document.getElementById('prevFileName').textContent = file.name;
+                let msg = `${data.total.toLocaleString()} productos cargados`;
+                if (data.controlados > 0) msg += ` · 🔴 ${data.controlados} controlados detectados`;
+                document.getElementById('prevCount').textContent = msg;
+                document.getElementById('prevInfo').classList.remove('hidden');
+                prevZone.style.opacity = '1';
+                prevZone.style.pointerEvents = '';
+
+                // Mostrar resultados directamente sin verificar
+                const estadoRes = await fetch('/estado');
+                const estado = await estadoRes.json();
+                todosResultados = estado.resultados;
+                actualizarTabla(todosResultados);
+                actualizarResumen(todosResultados);
+
+                document.getElementById('resultsSection').classList.remove('hidden');
+                document.getElementById('downloadSection').classList.remove('hidden');
+
+                const total = todosResultados.length;
+                const disponibles = todosResultados.filter(r => r.encontrado && r.disponible === true).length;
+                const consultar = todosResultados.filter(r => r.encontrado && (r.disponible === 'consultar' || r.estado_dusa === 'consultar')).length;
+                const faltantes = todosResultados.filter(r => r.encontrado && r.disponible === false).length;
+                const noEncontrados = todosResultados.filter(r => !r.encontrado).length;
+                const ctrl = todosResultados.filter(r => r.controlado).length;
+
+                let completedMsg = `Resultados cargados: <strong>${total.toLocaleString()}</strong> productos · ` +
+                    `<strong style="color:#155724">${disponibles.toLocaleString()}</strong> disponibles, ` +
+                    `<strong style="color:#856404">${consultar.toLocaleString()}</strong> consultar, ` +
+                    `<strong style="color:#721c24">${faltantes.toLocaleString()}</strong> faltantes, ` +
+                    `<strong>${noEncontrados.toLocaleString()}</strong> no encontrados.`;
+                if (ctrl > 0) completedMsg += ` <strong style="color:#B71C1C">🔴 ${ctrl} CONTROLADOS</strong>`;
+                document.getElementById('completedMessage').innerHTML = completedMsg;
+
+                if (ctrl > 0) {
+                    document.getElementById('controladosBadge').style.display = 'inline-block';
+                    document.getElementById('controladosCount').textContent = ctrl;
+                }
+
+            } catch (e) {
+                alert('Error cargando resultados: ' + e.message);
+                prevZone.style.opacity = '1';
+                prevZone.style.pointerEvents = '';
+            }
         }
     </script>
 </body>
